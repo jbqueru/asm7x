@@ -17,15 +17,18 @@ enum ParserState {
     InLabel,
     BeforeInstruction,
     InInstruction,
+    BeforeParameter,
+    InParameter,
+    AfterParameter,
     InComment,
 }
 
 fn main() {
     use crate::ParserState::*;
 
-    println!("asm7x version 0.0.a20221028");
+    println!("asm7x version 0.0.a20221029");
 
-    let source = "begin:\n\torg $8000\n\tmove d0,d1\n";
+    let source = concat!("begin:\n\torg $8000\n\tmove d0,d1\n",'\n');
 
     let mut source_line = 1;
     let mut source_column = 1;
@@ -48,6 +51,15 @@ fn main() {
             InInstruction => {
                 println!("in instruction");
             },
+            BeforeParameter => {
+                println!("before parameter");
+            },
+            InParameter => {
+                println!("in parameter");
+            },
+            AfterParameter => {
+                println!("after parameter");
+            },
             InComment => {
                 println!("in comment");
             },
@@ -69,7 +81,7 @@ fn main() {
                     println!("waiting for instruction");
                     parser_state = BeforeInstruction;
                 } else if current_char == '\n' {
-                    println!("empty line");
+                    // do nothing, empty line
                 } else if current_char == '.' || current_char == '_' || (current_char.is_ascii() && current_char.is_alphabetic()) {
                     println!("starting label");
                     parser_state = InLabel;
@@ -91,6 +103,8 @@ fn main() {
                 } else if !(current_char == '_' || (current_char.is_ascii() && current_char.is_alphanumeric())) {
                     println!("ERROR invalid label character at line {} column {}", source_line, source_column);
                     return;
+                } else {
+                    // still in label
                 }
             },
             BeforeInstruction => {
@@ -98,8 +112,7 @@ fn main() {
                     println!("starting comment");
                     parser_state = InComment;
                 } else if current_char == ' ' || current_char == '\t' {
-                    println!("still waiting for instruction");
-                    parser_state = BeforeInstruction;
+                    // do nothing, still waiting for instruction
                 } else if current_char == '\n' {
                     println!("end of line");
                     parser_state = LineStart;
@@ -112,18 +125,70 @@ fn main() {
                 if current_char == ';' {
                     println!("starting comment");
                     parser_state = InComment;
-                } else if current_char == ' ' || current_char == '\t' || current_char == ',' {
-                    println!("end of instruction, waiting for next instruction");
-                    parser_state = BeforeInstruction;
+                } else if current_char == ' ' || current_char == '\t' {
+                    println!("end of instruction, waiting for parameter");
+                    parser_state = BeforeParameter;
                 } else if current_char == '\n' {
                     println!("end of line");
                     parser_state = LineStart;
+                } else {
+                    // still in instruction
+                }
+            },
+            BeforeParameter => {
+                if current_char == ';' {
+                    println!("starting comment");
+                    parser_state = InComment;
+                } else if current_char == ' ' || current_char == '\t' {
+                    // do nothing, still waiting for parameter
+                } else if current_char == '\n' {
+                    println!("end of line");
+                    parser_state = LineStart;
+                } else {
+                    println!("starting parameter");
+                    parser_state = InParameter;
+                }
+            },
+            InParameter => {
+                if current_char == ';' {
+                    println!("starting comment");
+                    parser_state = InComment;
+                } else if current_char == ',' {
+                    println!("comma, waiting for parameter");
+                    parser_state = BeforeParameter;
+                } else if current_char == ' ' || current_char == '\t' {
+                    println!("end of parameter, waiting for comma");
+                    parser_state = AfterParameter;
+                } else if current_char == '\n' {
+                    println!("end of line");
+                    parser_state = LineStart;
+                } else {
+                    // still in parameter
+                }
+            },
+            AfterParameter => {
+                if current_char == ';' {
+                    println!("starting comment");
+                    parser_state = InComment;
+                } else if current_char == ',' {
+                    println!("comma between parameters");
+                    parser_state = BeforeParameter;
+                } else if current_char == ' ' || current_char == '\t' {
+                    // still after parameter
+                } else if current_char == '\n' {
+                    println!("end of line");
+                    parser_state = LineStart;
+                } else {
+                    println!("ERROR invalid character after parameter at line {} column {}", source_line, source_column);
+                    return;
                 }
             },
             InComment => {
                 if current_char == '\n' {
                     println!("new line, end comment");
                     parser_state = LineStart;
+                } else {
+                    // still in comment
                 }
             },
         }
