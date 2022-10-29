@@ -100,11 +100,11 @@ fn main() {
                 } else if current_char == '\n' {
                     println!("end of line");
                     parser_state = LineStart;
-                } else if !(current_char == '_' || (current_char.is_ascii() && current_char.is_alphanumeric())) {
+                } else if current_char == '_' || (current_char.is_ascii() && current_char.is_alphanumeric()) {
+                    // still in label
+                } else {
                     println!("ERROR invalid label character at line {} column {}", source_line, source_column);
                     return;
-                } else {
-                    // still in label
                 }
             },
             BeforeInstruction => {
@@ -116,9 +116,12 @@ fn main() {
                 } else if current_char == '\n' {
                     println!("end of line");
                     parser_state = LineStart;
-                } else {
+                } else if current_char == '.' || (current_char.is_ascii() && current_char.is_alphabetic()) {
                     println!("starting instruction");
                     parser_state = InInstruction;
+                } else {
+                    println!("ERROR invalid instruction character at line {} column {}", source_line, source_column);
+                    return;
                 }
             },
             InInstruction => {
@@ -131,8 +134,11 @@ fn main() {
                 } else if current_char == '\n' {
                     println!("end of line");
                     parser_state = LineStart;
+                } else if current_char == '.' || (current_char.is_ascii() && current_char.is_alphanumeric()) {
+                    // do nothing, in instruction
                 } else {
-                    // still in instruction
+                    println!("ERROR invalid instruction character at line {} column {}", source_line, source_column);
+                    return;
                 }
             },
             BeforeParameter => {
@@ -145,6 +151,7 @@ fn main() {
                     println!("end of line");
                     parser_state = LineStart;
                 } else {
+                    // TODO: define which characters are legal for parameters
                     println!("starting parameter");
                     parser_state = InParameter;
                 }
@@ -163,6 +170,7 @@ fn main() {
                     println!("end of line");
                     parser_state = LineStart;
                 } else {
+                    // TODO: define which characters are legal for parameters
                     // still in parameter
                 }
             },
