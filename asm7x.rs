@@ -21,6 +21,8 @@ enum ParserState {
 }
 
 fn main() {
+    use crate::ParserState::*;
+
     println!("asm7x version 0.0.a20221028");
 
     let source = "begin:\n\torg $8000\n\tmove d0,d1\n";
@@ -28,25 +30,25 @@ fn main() {
     let mut source_line = 1;
     let mut source_column = 1;
 
-    let mut parser_state = ParserState::LineStart;
+    let mut parser_state = LineStart;
 
     for current_char in source.chars() {
         println!("");
 
         match parser_state {
-            ParserState::LineStart => {
+            LineStart => {
                 println!("at line start");
             },
-            ParserState::InLabel => {
+            InLabel => {
                 println!("in label");
             },
-            ParserState::BeforeInstruction => {
+            BeforeInstruction => {
                 println!("before instruction");
             },
-            ParserState::InInstruction => {
+            InInstruction => {
                 println!("in instruction");
             },
-            ParserState::InComment => {
+            InComment => {
                 println!("in comment");
             },
         }
@@ -59,63 +61,63 @@ fn main() {
         println!("");
 
         match parser_state {
-            ParserState::LineStart => {
+            LineStart => {
                 if current_char == ';' {
                     println!("starting comment");
-                    parser_state = ParserState::InComment;
+                    parser_state = InComment;
                 } else if current_char == ' ' || current_char == '\t' {
                     println!("waiting for instruction");
-                    parser_state = ParserState::BeforeInstruction;
+                    parser_state = BeforeInstruction;
                 } else if current_char == '\n' {
                     println!("empty line");
                 } else {
                     println!("starting label");
-                    parser_state = ParserState::InLabel;
+                    parser_state = InLabel;
                 }
             },
-            ParserState::InLabel => {
+            InLabel => {
                 if current_char == ';' {
                     println!("starting comment");
-                    parser_state = ParserState::InComment;
+                    parser_state = InComment;
                 } else if current_char == ' ' || current_char == '\t' {
                     println!("end of label, waiting for instruction");
-                    parser_state = ParserState::BeforeInstruction;
+                    parser_state = BeforeInstruction;
                 } else if current_char == '\n' {
                     println!("end of line");
-                    parser_state = ParserState::LineStart;
+                    parser_state = LineStart;
                 }
             },
-            ParserState::BeforeInstruction => {
+            BeforeInstruction => {
                 if current_char == ';' {
                     println!("starting comment");
-                    parser_state = ParserState::InComment;
+                    parser_state = InComment;
                 } else if current_char == ' ' || current_char == '\t' {
                     println!("still waiting for instruction");
-                    parser_state = ParserState::BeforeInstruction;
+                    parser_state = BeforeInstruction;
                 } else if current_char == '\n' {
                     println!("end of line");
-                    parser_state = ParserState::LineStart;
+                    parser_state = LineStart;
                 } else {
                     println!("starting instruction");
-                    parser_state = ParserState::InInstruction;
+                    parser_state = InInstruction;
                 }
             },
-            ParserState::InInstruction => {
+            InInstruction => {
                 if current_char == ';' {
                     println!("starting comment");
-                    parser_state = ParserState::InComment;
+                    parser_state = InComment;
                 } else if current_char == ' ' || current_char == '\t' || current_char == ',' {
                     println!("end of instruction, waiting for next instruction");
-                    parser_state = ParserState::BeforeInstruction;
+                    parser_state = BeforeInstruction;
                 } else if current_char == '\n' {
                     println!("end of line");
-                    parser_state = ParserState::LineStart;
+                    parser_state = LineStart;
                 }
             },
-            ParserState::InComment => {
+            InComment => {
                 if current_char == '\n' {
                     println!("new line, end comment");
-                    parser_state = ParserState::LineStart;
+                    parser_state = LineStart;
                 }
             },
         }
@@ -128,5 +130,10 @@ fn main() {
         } else {
             source_column += 1;
         }
+    }
+
+    if !matches!(parser_state, LineStart) {
+        println!("");
+        println!("ERROR: incomplete line at end of source file");
     }
 }
