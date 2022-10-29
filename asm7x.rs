@@ -28,12 +28,14 @@ fn main() {
 
     println!("asm7x version 0.0.a20221029");
 
-    let source = concat!("begin:\n\torg $8000\n\tmove d0,d1\n",'\n');
+    let source = concat!("\t.org $8000\nreset:\n\tLDX\t#$FF\n\t",'\n');
 
     let mut source_line = 1;
     let mut source_column = 1;
 
     let mut parser_state = LineStart;
+
+    let mut token = String::from("");
 
     for current_char in source.chars() {
         println!("");
@@ -84,6 +86,7 @@ fn main() {
                     // do nothing, empty line
                 } else if current_char == '.' || current_char == '_' || (current_char.is_ascii() && current_char.is_alphabetic()) {
                     println!("starting label");
+                    token.push(current_char);
                     parser_state = InLabel;
                 } else {
                     println!("ERROR invalid label character at line {} column {}", source_line, source_column);
@@ -91,17 +94,13 @@ fn main() {
                 }
             },
             InLabel => {
-                if current_char == ';' {
-                    println!("starting comment");
-                    parser_state = InComment;
-                } else if current_char == ':' {
+                if current_char == ':' {
+                    println!("label: {}", token);
+                    token = String::from("");
                     println!("end of label, waiting for instruction");
                     parser_state = BeforeInstruction;
-                } else if current_char == '\n' {
-                    println!("end of line");
-                    parser_state = LineStart;
                 } else if current_char == '_' || (current_char.is_ascii() && current_char.is_alphanumeric()) {
-                    // still in label
+                    token.push(current_char);
                 } else {
                     println!("ERROR invalid label character at line {} column {}", source_line, source_column);
                     return;
@@ -118,6 +117,7 @@ fn main() {
                     parser_state = LineStart;
                 } else if current_char == '.' || (current_char.is_ascii() && current_char.is_alphabetic()) {
                     println!("starting instruction");
+                    token.push(current_char);
                     parser_state = InInstruction;
                 } else {
                     println!("ERROR invalid instruction character at line {} column {}", source_line, source_column);
@@ -126,16 +126,22 @@ fn main() {
             },
             InInstruction => {
                 if current_char == ';' {
+                    println!("instruction: {}", token);
+                    token = String::from("");
                     println!("starting comment");
                     parser_state = InComment;
                 } else if current_char == ' ' || current_char == '\t' {
+                    println!("instruction: {}", token);
+                    token = String::from("");
                     println!("end of instruction, waiting for parameter");
                     parser_state = BeforeParameter;
                 } else if current_char == '\n' {
+                    println!("instruction: {}", token);
+                    token = String::from("");
                     println!("end of line");
                     parser_state = LineStart;
                 } else if current_char == '.' || (current_char.is_ascii() && current_char.is_alphanumeric()) {
-                    // do nothing, in instruction
+                    token.push(current_char);
                 } else {
                     println!("ERROR invalid instruction character at line {} column {}", source_line, source_column);
                     return;
@@ -153,23 +159,33 @@ fn main() {
                 } else {
                     // TODO: define which characters are legal for parameters
                     println!("starting parameter");
+                    token.push(current_char);
                     parser_state = InParameter;
                 }
             },
             InParameter => {
                 if current_char == ';' {
+                    println!("parameter: {}", token);
+                    token = String::from("");
                     println!("starting comment");
                     parser_state = InComment;
                 } else if current_char == ',' {
+                    println!("parameter: {}", token);
+                    token = String::from("");
                     println!("comma, waiting for parameter");
                     parser_state = BeforeParameter;
                 } else if current_char == ' ' || current_char == '\t' {
+                    println!("parameter: {}", token);
+                    token = String::from("");
                     println!("end of parameter, waiting for comma");
                     parser_state = AfterParameter;
                 } else if current_char == '\n' {
+                    println!("parameter: {}", token);
+                    token = String::from("");
                     println!("end of line");
                     parser_state = LineStart;
                 } else {
+                    token.push(current_char);
                     // TODO: define which characters are legal for parameters
                     // still in parameter
                 }
