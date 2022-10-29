@@ -278,11 +278,26 @@ fn main() {
     }
 
     println!("");
-    println!("parsed file: ");
+    println!("source listing:");
+    println!("");
     for line in &parsed_file {
-        print!("parsed line: label: {} instruction: {}", line.label, line.instruction);
+        if !line.label.eq("") {
+            print!("{}: ", line.label);
+        } else {
+            print!(" ");
+        }
+        if !line.instruction.eq("") {
+            print!("{}", line.instruction);
+        }
+        let mut first_param = true;
         for p in &line.parameters {
-            print!(" parameter: {}", p);
+            if first_param {
+                print!(" ");
+                first_param = false;
+            } else {
+                print!(",");
+            }
+            print!("{}", p);
         }
         println!("");
     }
