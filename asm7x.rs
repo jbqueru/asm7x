@@ -70,21 +70,27 @@ fn main() {
                     parser_state = BeforeInstruction;
                 } else if current_char == '\n' {
                     println!("empty line");
-                } else {
+                } else if current_char == '.' || current_char == '_' || (current_char.is_ascii() && current_char.is_alphabetic()) {
                     println!("starting label");
                     parser_state = InLabel;
+                } else {
+                    println!("ERROR invalid label character at line {} column {}", source_line, source_column);
+                    return;
                 }
             },
             InLabel => {
                 if current_char == ';' {
                     println!("starting comment");
                     parser_state = InComment;
-                } else if current_char == ' ' || current_char == '\t' {
+                } else if current_char == ':' {
                     println!("end of label, waiting for instruction");
                     parser_state = BeforeInstruction;
                 } else if current_char == '\n' {
                     println!("end of line");
                     parser_state = LineStart;
+                } else if !(current_char == '_' || (current_char.is_ascii() && current_char.is_alphanumeric())) {
+                    println!("ERROR invalid label character at line {} column {}", source_line, source_column);
+                    return;
                 }
             },
             BeforeInstruction => {
