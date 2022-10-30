@@ -12,6 +12,38 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+struct SourceFile<'a> {
+    current: Option<char>,
+    future: std::str::Chars<'a>,
+    line: u32,
+    column: u32,
+}
+
+impl SourceFile<'_> {
+    fn new(s: &String) -> SourceFile {
+        let mut iter = s.chars();
+        return SourceFile::<'_> {
+            current: iter.next(),
+            future: iter,
+            line: 1,
+            column: 1,
+        };
+    }
+
+    fn peek(&self) -> Option<char> {
+        return self.current;
+    }
+
+    fn advance(&mut self) {
+        self.column += 1;
+        if self.current.expect("Should not advance beyond EOF") == '\n' {
+            self.line += 1;
+            self.column = 1;
+        }
+        self.current = self.future.next();
+    }
+}
+
 enum ParserState {
     LineStart,
     InLabel,
@@ -30,6 +62,27 @@ struct CodeLine {
 }
 
 fn main() {
+    main2();
+}
+
+fn main1() {
+    let bind = String::from("JB\nQ");
+    let mut source = SourceFile::new(&bind);
+
+    println!("1 {} {}:{}", source.peek().unwrap(), source.line, source.column);
+    source.advance();
+    println!("2 {} {}:{}", source.peek().unwrap(), source.line, source.column);
+    source.advance();
+    println!("3 {} {}:{}", source.peek().unwrap(), source.line, source.column);
+    source.advance();
+    println!("4 {} {}:{}", source.peek().unwrap(), source.line, source.column);
+    source.advance();
+    println!("");
+
+    main2();
+}
+
+fn main2() {
     use crate::ParserState::*;
 
     println!("asm7x version 0.0.a20221029");
