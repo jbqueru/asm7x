@@ -46,6 +46,13 @@ impl SourceFile<'_> {
     fn is_eof(&self) -> bool {
         return self.current.is_none();
     }
+
+    fn print_current(&self) {
+        match self.current {
+            None => print!("EOF at line {}", self.line),
+            Some(c) => print!("character '{}' at {}:{}", c.escape_default(), self.line, self.column),
+        }
+    }
 }
 
 struct Assembler<'lt> {
@@ -53,7 +60,6 @@ struct Assembler<'lt> {
 }
 
 impl Assembler<'_> {
-    //    use crate::ParserState::*;
     fn new(s: &String) -> Assembler {
         return Assembler {
             src: SourceFile::new(s),
@@ -88,20 +94,42 @@ fn lex_label(src: &mut SourceFile) -> Option<String> {
     let mut state = LabelLexerState::BeforeLabel;
     let mut ret = String::from("");
     loop {
+        print!("lex_label loop, state: ");
+        match state {
+            BeforeLabel => print!("before label, "),
+            InLabel => print!("in label, "),
+        }
+        src.print_current();
+        println!("");
         match state {
             BeforeLabel => match src.peek() {
                 None => return None,
-                Some(c) => {
-                    ret = c.to_string();
-                    src.advance();
-                    state = InLabel;
+                Some(c) => match c {
+                    'a'..='z' | 'A'..='Z' => {
+                        ret.push(c);
+                        src.advance();
+                        state = InLabel;
+                    },
+                    // TODO - space, everything else
+                    _ => {
+                        panic!("unimplemented");
+                    },
                 }
             },
             InLabel => match src.peek() {
-                None => return Some(ret),
-                Some(c) => {
-                    ret.push(c);
-                    src.advance();
+                None => panic!("unimplemented"),
+                Some(c) => match c {
+                    'a'..='z' | 'A'..='Z' => {
+                        ret.push(c);
+                        src.advance();
+                    },
+                    ':' => {
+                        src.advance();
+                        return Some(ret);
+                    },
+                    _ => {
+                        panic!("unimplemented");
+                    },
                 }
             },
         }
@@ -130,7 +158,7 @@ fn main() {
 }
 
 fn main1() {
-    let source = String::from("JB\nQ");
+    let source = String::from("JBQ:");
     let mut assembler = Assembler::new(&source);
 
     assembler.run();
