@@ -34,7 +34,7 @@ fn main() {
 
     println!("asm7x version 0.0.a20221029");
 
-    let source = concat!("\t.org $8000\nreset:\n\tLDX\t#$FF\n\t",'\n');
+    let source = concat!("\t.org $8000\nreset:\n\tLDX\t#$00\n\tLDX\t#$FF\n",'\n');
 
     let mut parsed_file : Vec<CodeLine> = Vec::new();
     let mut parsed_line = CodeLine { label: String::from(""), instruction: String::from(""), parameters: Vec::new() };
@@ -281,12 +281,12 @@ fn main() {
     println!("source listing:");
     println!("");
     for line in &parsed_file {
-        if !line.label.eq("") {
+        if line.label != "" {
             print!("{}: ", line.label);
         } else {
             print!(" ");
         }
-        if !line.instruction.eq("") {
+        if line.instruction != "" {
             print!("{}", line.instruction);
         }
         let mut first_param = true;
@@ -301,5 +301,32 @@ fn main() {
         }
         println!("");
     }
-    
+
+    let mut addr = 0_u32;
+
+    for line in &parsed_file {
+        if line.instruction == ".org" {
+            addr = lex_number(&line.parameters[0]);
+            println!("address moved to {}", addr);
+        }
+        if line.instruction == "LDX" {
+            println!("issuing LDX at {}", addr);
+            addr += 1;
+        }
+    }
+}
+
+fn lex_number(str:&String) -> u32 {
+    let mut radix = 10;
+    let mut ret:u32 = 0;
+    for current_char in str.chars() {
+        if current_char == '$' {
+            radix = 16;
+        } else if current_char == '%' {
+            radix = 2;
+        } else {
+            ret = ret * radix + current_char.to_digit(radix).unwrap();
+        }
+    }
+    return ret;
 }
