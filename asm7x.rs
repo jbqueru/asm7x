@@ -24,7 +24,7 @@ enum ParserState {
 }
 
 struct CodeLine {
-    label: String,
+    label: Option<String>,
     instruction: String,
     parameters: Vec<String>,
 }
@@ -37,7 +37,7 @@ fn main() {
     let source = concat!("\t.org $8000\nreset:\n\tLDX\t#$00\n\tLDX\t#$FF\n",'\n');
 
     let mut parsed_file : Vec<CodeLine> = Vec::new();
-    let mut parsed_line = CodeLine { label: String::from(""), instruction: String::from(""), parameters: Vec::new() };
+    let mut parsed_line = CodeLine { label: Some(String::from("")), instruction: String::from(""), parameters: Vec::new() };
 
     let mut source_line = 1;
     let mut source_column = 1;
@@ -105,7 +105,7 @@ fn main() {
             InLabel => {
                 if current_char == ':' {
                     println!("label: {}", token);
-                    parsed_line.label = token;
+                    parsed_line.label = Some(token);
                     token = String::from("");
                     println!("end of label, waiting for instruction");
                     parser_state = BeforeInstruction;
@@ -124,9 +124,9 @@ fn main() {
                     // do nothing, still waiting for instruction
                 } else if current_char == '\n' {
                     println!("end of line");
-                    println!("parsed line: label: {} instruction: {}", parsed_line.label, parsed_line.instruction);
+                    println!("parsed line: label: {} instruction: {}", parsed_line.label.as_ref().unwrap(), parsed_line.instruction);
                     parsed_file.push(parsed_line);
-                    parsed_line = CodeLine { label: String::from(""), instruction: String::from(""), parameters: Vec::new() };
+                    parsed_line = CodeLine { label: Some(String::from("")), instruction: String::from(""), parameters: Vec::new() };
                     parser_state = LineStart;
                 } else if current_char == '.' || (current_char.is_ascii() && current_char.is_alphabetic()) {
                     println!("starting instruction");
@@ -153,9 +153,9 @@ fn main() {
                 } else if current_char == '\n' {
                     println!("instruction: {}", token);
                     parsed_line.instruction = token;
-                    println!("parsed line: label: {} instruction: {}", parsed_line.label, parsed_line.instruction);
+                    println!("parsed line: label: {} instruction: {}", parsed_line.label.as_ref().unwrap(), parsed_line.instruction);
                     parsed_file.push(parsed_line);
-                    parsed_line = CodeLine { label: String::from(""), instruction: String::from(""), parameters: Vec::new() };
+                    parsed_line = CodeLine { label: Some(String::from("")), instruction: String::from(""), parameters: Vec::new() };
                     token = String::from("");
                     println!("end of line");
                     parser_state = LineStart;
@@ -174,9 +174,9 @@ fn main() {
                     // do nothing, still waiting for parameter
                 } else if current_char == '\n' {
                     println!("end of line");
-                    println!("parsed line: label: {} instruction: {}", parsed_line.label, parsed_line.instruction);
+                    println!("parsed line: label: {} instruction: {}", parsed_line.label.as_ref().unwrap(), parsed_line.instruction);
                     parsed_file.push(parsed_line);
-                    parsed_line = CodeLine { label: String::from(""), instruction: String::from(""), parameters: Vec::new() };
+                    parsed_line = CodeLine { label: Some(String::from("")), instruction: String::from(""), parameters: Vec::new() };
                     parser_state = LineStart;
                 } else {
                     // TODO: define which characters are legal for parameters
@@ -207,13 +207,13 @@ fn main() {
                 } else if current_char == '\n' {
                     println!("parameter: {}", token);
                     parsed_line.parameters.push(token);
-                    print!("parsed line: label: {} instruction: {}", parsed_line.label, parsed_line.instruction);
+                    print!("parsed line: label: {} instruction: {}", parsed_line.label.as_ref().unwrap(), parsed_line.instruction);
                     for p in &parsed_line.parameters {
                         print!(" parameter: {}", p);
                     }
                     println!("");
                     parsed_file.push(parsed_line);
-                    parsed_line = CodeLine { label: String::from(""), instruction: String::from(""), parameters: Vec::new() };
+                    parsed_line = CodeLine { label: Some(String::from("")), instruction: String::from(""), parameters: Vec::new() };
                     token = String::from("");
                     println!("end of line");
                     parser_state = LineStart;
@@ -234,12 +234,12 @@ fn main() {
                     // still after parameter
                 } else if current_char == '\n' {
                     println!("end of line");
-                    print!("parsed line: label: {} instruction: {}", parsed_line.label, parsed_line.instruction);
+                    print!("parsed line: label: {} instruction: {}", parsed_line.label.as_ref().unwrap(), parsed_line.instruction);
                     for p in &parsed_line.parameters {
                         print!(" parameter: {}", p);
                     }
                     parsed_file.push(parsed_line);
-                    parsed_line = CodeLine { label: String::from(""), instruction: String::from(""), parameters: Vec::new() };
+                    parsed_line = CodeLine { label: Some(String::from("")), instruction: String::from(""), parameters: Vec::new() };
                     parser_state = LineStart;
                 } else {
                     println!("ERROR invalid character after parameter at line {} column {}", source_line, source_column);
@@ -249,12 +249,12 @@ fn main() {
             InComment => {
                 if current_char == '\n' {
                     println!("new line, end comment");
-                    print!("parsed line: label: {} instruction: {}", parsed_line.label, parsed_line.instruction);
+                    print!("parsed line: label: {} instruction: {}", parsed_line.label.as_ref().unwrap(), parsed_line.instruction);
                     for p in &parsed_line.parameters {
                         print!(" parameter: {}", p);
                     }
                     parsed_file.push(parsed_line);
-                    parsed_line = CodeLine { label: String::from(""), instruction: String::from(""), parameters: Vec::new() };
+                    parsed_line = CodeLine { label: Some(String::from("")), instruction: String::from(""), parameters: Vec::new() };
                     parser_state = LineStart;
                 } else {
                     // still in comment
@@ -281,8 +281,8 @@ fn main() {
     println!("source listing:");
     println!("");
     for line in &parsed_file {
-        if line.label != "" {
-            print!("{}: ", line.label);
+        if line.label.as_ref().unwrap() != "" {
+            print!("{}: ", line.label.as_ref().unwrap());
         } else {
             print!(" ");
         }
