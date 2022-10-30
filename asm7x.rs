@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-struct SourceFile<'a> {
+struct SourceFile<'lt> {
     current: Option<char>,
-    future: std::str::Chars<'a>,
+    future: std::str::Chars<'lt>,
     line: u32,
     column: u32,
 }
@@ -42,9 +42,73 @@ impl SourceFile<'_> {
         }
         self.current = self.future.next();
     }
+
+    fn is_eof(&self) -> bool {
+        return self.current.is_none();
+    }
 }
 
-enum ParserState {
+struct Assembler<'lt> {
+    src: SourceFile<'lt>,
+}
+
+impl Assembler<'_> {
+    //    use crate::ParserState::*;
+    fn new(s: &String) -> Assembler {
+        return Assembler {
+            src: SourceFile::new(s),
+        };
+    }
+
+    fn run(&mut self) {
+        while !self.src.is_eof() {
+            self.parse_line();
+        }
+        println!("");
+    }
+
+    fn parse_line(&mut self) {
+        println!("parse_line");
+        let label = lex_label(&mut self.src);
+        match label {
+            None => println!("no label found"),
+            Some(l) => println!("found label: {}", l),
+        }
+    }
+}
+
+enum LabelLexerState {
+    BeforeLabel,
+    InLabel,
+}
+
+fn lex_label(src: &mut SourceFile) -> Option<String> {
+    use crate::LabelLexerState::*;
+
+    let mut state = LabelLexerState::BeforeLabel;
+    let mut ret = String::from("");
+    loop {
+        match state {
+            BeforeLabel => match src.peek() {
+                None => return None,
+                Some(c) => {
+                    ret = c.to_string();
+                    src.advance();
+                    state = InLabel;
+                }
+            },
+            InLabel => match src.peek() {
+                None => return Some(ret),
+                Some(c) => {
+                    ret.push(c);
+                    src.advance();
+                }
+            },
+        }
+    }
+}
+
+enum OldParserState {
     LineStart,
     InLabel,
     BeforeInstruction,
@@ -62,48 +126,20 @@ struct CodeLine {
 }
 
 fn main() {
-    main2();
+    main1();
 }
 
 fn main1() {
-    let bind = String::from("JB\nQ");
-    let mut source = SourceFile::new(&bind);
+    let source = String::from("JB\nQ");
+    let mut assembler = Assembler::new(&source);
 
-    println!(
-        "1 {} {}:{}",
-        source.peek().unwrap(),
-        source.line,
-        source.column
-    );
-    source.advance();
-    println!(
-        "2 {} {}:{}",
-        source.peek().unwrap(),
-        source.line,
-        source.column
-    );
-    source.advance();
-    println!(
-        "3 {} {}:{}",
-        source.peek().unwrap(),
-        source.line,
-        source.column
-    );
-    source.advance();
-    println!(
-        "4 {} {}:{}",
-        source.peek().unwrap(),
-        source.line,
-        source.column
-    );
-    source.advance();
-    println!("");
+    assembler.run();
 
     main2();
 }
 
 fn main2() {
-    use crate::ParserState::*;
+    use crate::OldParserState::*;
 
     println!("asm7x version 0.0.a20221029");
 
