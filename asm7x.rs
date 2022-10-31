@@ -425,3 +425,96 @@ fn skip_optional_comment(src: &mut SourceFile) {
         }
     }
 }
+
+enum ParameterType {
+    Absolute,       // 2 types
+    Arithmetic,     // 8 types
+    Branch,         // 1 type
+    Bit,            // 2 types
+    CompareIndex,   // 3 types
+    Implied,        // 1 type (!)
+    IncDec,         // 4 types
+    Jmp,            // 2 types
+    Jsr,            // 1 type
+    LoadIndex,      // 5 types (LDX and LDY different)
+    Shift,          // 5 types
+    Store,          // 7 types
+    StoreIndex,     // 3 types (LDX and LDY different)
+}
+
+struct ParameterInfo {
+    ptype: ParameterType,
+}
+
+impl ParameterInfo {
+    fn new(p: ParameterType) -> ParameterInfo {
+        return ParameterInfo {
+            ptype : p,
+        }
+    }
+}
+
+fn prepare_parameter_info() {
+    use crate::ParameterType::*;
+    let mut pinfo = std::collections::HashMap::new();
+    pinfo.insert("ADC", ParameterInfo::new(Arithmetic));
+    pinfo.insert("AND", ParameterInfo::new(Arithmetic));
+    pinfo.insert("ASL", ParameterInfo::new(Shift));
+    pinfo.insert("BCC", ParameterInfo::new(Branch));
+    pinfo.insert("BCS", ParameterInfo::new(Branch));
+    pinfo.insert("BEQ", ParameterInfo::new(Branch));
+    pinfo.insert("BIT", ParameterInfo::new(Bit));
+    pinfo.insert("BMI", ParameterInfo::new(Branch));
+    pinfo.insert("BNE", ParameterInfo::new(Branch));
+    pinfo.insert("BPL", ParameterInfo::new(Branch));
+    pinfo.insert("BRK", ParameterInfo::new(Implied));
+    pinfo.insert("BVC", ParameterInfo::new(Branch));
+    pinfo.insert("BVS", ParameterInfo::new(Branch));
+    pinfo.insert("CLC", ParameterInfo::new(Implied));
+    pinfo.insert("CLD", ParameterInfo::new(Implied));
+    pinfo.insert("CLI", ParameterInfo::new(Implied));
+    pinfo.insert("CLV", ParameterInfo::new(Implied));
+    pinfo.insert("CMP", ParameterInfo::new(Arithmetic));
+    pinfo.insert("CPX", ParameterInfo::new(CompareIndex));
+    pinfo.insert("CPY", ParameterInfo::new(CompareIndex));
+    pinfo.insert("DEC", ParameterInfo::new(IncDec));
+    pinfo.insert("DEX", ParameterInfo::new(Implied));
+    pinfo.insert("DEY", ParameterInfo::new(Implied));
+    pinfo.insert("EOR", ParameterInfo::new(Arithmetic));
+    pinfo.insert("INC", ParameterInfo::new(IncDec));
+    pinfo.insert("INX", ParameterInfo::new(Implied));
+    pinfo.insert("INY", ParameterInfo::new(Implied));
+    pinfo.insert("JMP", ParameterInfo::new(Jmp));
+    pinfo.insert("JSR", ParameterInfo::new(Jsr));
+    pinfo.insert("LDA", ParameterInfo::new(Arithmetic));
+    pinfo.insert("LDX", ParameterInfo::new(LoadIndex));
+    pinfo.insert("LDY", ParameterInfo::new(LoadIndex));
+    pinfo.insert("LSR", ParameterInfo::new(Shift));
+    pinfo.insert("NOP", ParameterInfo::new(Implied));
+    pinfo.insert("ORA", ParameterInfo::new(Arithmetic));
+    pinfo.insert("PHA", ParameterInfo::new(Implied));
+    pinfo.insert("PHP", ParameterInfo::new(Implied));
+    pinfo.insert("PLA", ParameterInfo::new(Implied));
+    pinfo.insert("PLP", ParameterInfo::new(Implied));
+    pinfo.insert("ROL", ParameterInfo::new(Shift));
+    pinfo.insert("ROR", ParameterInfo::new(Shift));
+    pinfo.insert("RTI", ParameterInfo::new(Implied));
+    pinfo.insert("RTS", ParameterInfo::new(Implied));
+    pinfo.insert("SBC", ParameterInfo::new(Arithmetic));
+    pinfo.insert("SEC", ParameterInfo::new(Implied));
+    pinfo.insert("SED", ParameterInfo::new(Implied));
+    pinfo.insert("SEI", ParameterInfo::new(Implied));
+    pinfo.insert("STA", ParameterInfo::new(Store));
+    pinfo.insert("STX", ParameterInfo::new(StoreIndex));
+    pinfo.insert("STY", ParameterInfo::new(StoreIndex));
+    pinfo.insert("TAX", ParameterInfo::new(Implied));
+    pinfo.insert("TAY", ParameterInfo::new(Implied));
+    pinfo.insert("TSX", ParameterInfo::new(Implied));
+    pinfo.insert("TXA", ParameterInfo::new(Implied));
+    pinfo.insert("TXS", ParameterInfo::new(Implied));
+    pinfo.insert("TYA", ParameterInfo::new(Implied));
+}
+
+/*
+12345678901234567890123456789012345678901234567890123456789012345678901234567890
+*/
