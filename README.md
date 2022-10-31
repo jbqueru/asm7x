@@ -9,9 +9,9 @@ source : line source
 
 line : LABEL OPTIONAL_SPACE after_label
      | SPACE after_label
-     | optional_comment
+     | OPTIONAL_COMMENT
 
-after_label : optional_instruction OPTIONAL_SPACE optional_comment
+after_label : optional_instruction OPTIONAL_SPACE OPTIONAL_COMMENT
 
 optinal_instruction : INSTRUCTION optional_parameters
                     | Ø
@@ -21,7 +21,4 @@ optional_parameters : SPACE PARAMETER OPTIONAL_SPACE more_parameters
 
 more_parameters : ',' OPTIONAL_SPACE PARAMETER OPTIONAL_SPACE more_parameters
                 | Ø
-
-optional_comment : COMMENT '\n'
-                 | '\n'
 ```
