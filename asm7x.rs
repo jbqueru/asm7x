@@ -14,7 +14,7 @@
 
 fn main() {
     let mut source = String::from("");
-    source.push_str("JBQ: TAX ;test1\n");
+    source.push_str("JBQ:\tTAX D2, D5\t\t;test1\n");
     let mut assembler = Assembler::new(&source);
     assembler.parse_source();
 }
@@ -121,9 +121,57 @@ impl Assembler<'_> {
         let inst = lex_instruction(&mut self.src);
         if inst.is_some() {
             println!("found instruction: {}", inst.unwrap());
-            return;
+            if !skip_space(&mut self.src) {
+                return;
+            }
+            self.parse_optional_parameters();
         }
         return;
+    }
+
+    fn parse_optional_parameters(&mut self) {
+        println!("parse_optional_parameters");
+        let param = lex_parameter(&mut self.src);
+        if param.is_some() {
+            println!("found parameter: {}", param.unwrap());
+            skip_optional_space(&mut self.src);
+            self.parse_more_parameters();
+        }
+    }
+
+    fn parse_more_parameters(&mut self) {
+        println!("parse_more_parameters");
+        match self.src.peek() {
+            None => {
+                print!("unexpected end of file at ");
+                self.src.print_location();
+                println!("");
+                panic!("unimplemented error handling");
+            }
+            Some(c) => match c {
+                ',' => {
+                    self.src.advance();
+                    skip_optional_space(&mut self.src);
+                }
+                _ => {
+                    return;
+                }
+            },
+        }
+        let param = lex_parameter(&mut self.src);
+        match param {
+            None => {
+                print!("didn't find require parameter at ");
+                self.src.print_location();
+                println!("");
+                panic!("unimplemented error handling");
+            }
+            Some(p) => {
+                println!("found parameter: {}", p);
+                skip_optional_space(&mut self.src);
+                self.parse_more_parameters();
+            }
+        }
     }
 }
 
@@ -162,7 +210,7 @@ fn lex_label(src: &mut SourceFile) -> Option<String> {
                     print!("unexpected end of file at ");
                     src.print_location();
                     println!("");
-                    panic!("unimplemented error handling")
+                    panic!("unimplemented error handling");
                 }
                 Some(c) => match c {
                     'a'..='z' | 'A'..='Z' => {
@@ -216,6 +264,57 @@ fn lex_instruction(src: &mut SourceFile) -> Option<String> {
                 },
             },
             InInstruction => match src.peek() {
+                None => {
+                    print!("unexpected end of file at ");
+                    src.print_location();
+                    println!("");
+                    panic!("unimplemented error handling");
+                }
+                Some(c) => match c {
+                    'a'..='z' | 'A'..='Z' | '0'..='9' => {
+                        ret.push(c);
+                        src.advance();
+                    }
+                    _ => {
+                        return Some(ret);
+                    }
+                },
+            },
+        }
+    }
+}
+
+enum ParameterLexerState {
+    BeforeParameter,
+    InParameter,
+}
+
+fn lex_parameter(src: &mut SourceFile) -> Option<String> {
+    use crate::ParameterLexerState::*;
+
+    let mut state = BeforeParameter;
+    let mut ret = String::from("");
+    loop {
+        print!("lex_parameter loop, state: ");
+        match state {
+            BeforeParameter => print!("before parameter, "),
+            InParameter => print!("in parameter, "),
+        }
+        src.print_current();
+        println!("");
+        match state {
+            BeforeParameter => match src.peek() {
+                None => return None,
+                Some(c) => match c {
+                    'a'..='z' | 'A'..='Z' => {
+                        ret.push(c);
+                        src.advance();
+                        state = InParameter;
+                    }
+                    _ => return None,
+                },
+            },
+            InParameter => match src.peek() {
                 None => {
                     print!("unexpected end of file at ");
                     src.print_location();
