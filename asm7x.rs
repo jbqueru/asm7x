@@ -50,7 +50,12 @@ impl SourceFile<'_> {
     fn print_current(&self) {
         match self.current {
             None => print!("EOF at line {}", self.line),
-            Some(c) => print!("character '{}' at {}:{}", c.escape_default(), self.line, self.column),
+            Some(c) => print!(
+                "character '{}' at {}:{}",
+                c.escape_default(),
+                self.line,
+                self.column
+            ),
         }
     }
 }
@@ -66,7 +71,7 @@ impl Assembler<'_> {
         };
     }
 
-    fn run(&mut self) {
+    fn parse_source(&mut self) {
         while !self.src.is_eof() {
             self.parse_line();
         }
@@ -76,10 +81,22 @@ impl Assembler<'_> {
     fn parse_line(&mut self) {
         println!("parse_line");
         let label = lex_label(&mut self.src);
-        match label {
-            None => println!("no label found"),
-            Some(l) => println!("found label: {}", l),
+        if label.is_some() {
+            println!("found label: {}", label.unwrap());
+            skip_optional_space(&mut self.src);
+            self.parse_after_label();
+            return;
         }
+        if skip_space(&mut self.src) {
+            self.parse_after_label();
+            return;
+        }
+        skip_optional_comment(&mut self.src);
+    }
+
+    fn parse_after_label(&mut self) {
+        println!("parse_after_label");
+        skip_optional_comment(&mut self.src);
     }
 }
 
@@ -109,12 +126,9 @@ fn lex_label(src: &mut SourceFile) -> Option<String> {
                         ret.push(c);
                         src.advance();
                         state = InLabel;
-                    },
-                    // TODO - space, everything else
-                    _ => {
-                        panic!("unimplemented");
-                    },
-                }
+                    }
+                    _ => return None,
+                },
             },
             InLabel => match src.peek() {
                 None => panic!("unimplemented"),
@@ -122,15 +136,79 @@ fn lex_label(src: &mut SourceFile) -> Option<String> {
                     'a'..='z' | 'A'..='Z' => {
                         ret.push(c);
                         src.advance();
-                    },
+                    }
                     ':' => {
                         src.advance();
                         return Some(ret);
-                    },
+                    }
                     _ => {
                         panic!("unimplemented");
-                    },
+                    }
+                },
+            },
+        }
+    }
+}
+
+fn skip_space(src: &mut SourceFile) -> bool {
+    print!("skip_space, ");
+    src.print_current();
+    println!("");
+    match src.peek() {
+        None => panic!("unimplemented"),
+        Some(c) => match c {
+            ' ' | '\t' => {
+                src.advance();
+                skip_optional_space(src);
+                return true;
+            }
+            _ => return false,
+        },
+    }
+}
+
+fn skip_optional_space(src: &mut SourceFile) {
+    loop {
+        print!("skip_optional_spaces loop, ");
+        src.print_current();
+        println!("");
+        match src.peek() {
+            None => return,
+            Some(c) => match c {
+                ' ' | '\t' => src.advance(),
+                _ => return,
+            },
+        }
+    }
+}
+
+fn skip_optional_comment(src: &mut SourceFile) {
+    print!("skip_optional_comment, ");
+    src.print_current();
+    println!("");
+    match src.peek() {
+        None => panic!("unimplemented"),
+        Some(c) => match c {
+            '\n' => {
+                src.advance();
+                return;
+            }
+            ';' => src.advance(),
+            _ => panic!("unimplemented"),
+        },
+    }
+    loop {
+        print!("skip_optional_comment loop, ");
+        src.print_current();
+        println!("");
+        match src.peek() {
+            None => panic!("unimplemented"),
+            Some(c) => match c {
+                '\n' => {
+                    src.advance();
+                    return;
                 }
+                _ => src.advance(),
             },
         }
     }
@@ -158,10 +236,10 @@ fn main() {
 }
 
 fn main1() {
-    let source = String::from("JBQ:");
+    let source = String::from("\n\nJBQ:;test1\nabc:   ;test2\n;test3\n   ;test4\n");
     let mut assembler = Assembler::new(&source);
 
-    assembler.run();
+    assembler.parse_source();
 
     main2();
 }
