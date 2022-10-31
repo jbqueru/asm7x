@@ -13,7 +13,8 @@
 // limitations under the License.
 
 fn main() {
-    let source = String::from("\n\nJBQ:;test1\nabc:   ;test2\n;test3\n   ;test4\n");
+    let mut source = String::from("");
+    source.push_str("JBQ: TAX ;test1\n");
     let mut assembler = Assembler::new(&source);
     assembler.parse_source();
 }
@@ -41,12 +42,16 @@ impl SourceFile<'_> {
     }
 
     fn advance(&mut self) {
-        self.column += 1;
-        if self.current.expect("Should not advance beyond EOF") == '\n' {
-            self.line += 1;
-            self.column = 1;
-        }
+        let previous = self.current.expect("attempting to advance beyond EOF");
         self.current = self.future.next();
+        if self.current.is_some() {
+            if previous == '\n' {
+                self.line += 1;
+                self.column = 1;
+            } else {
+                self.column += 1;
+            }
+        }
     }
 
     fn is_eof(&self) -> bool {
@@ -55,7 +60,7 @@ impl SourceFile<'_> {
 
     fn print_current(&self) {
         match self.current {
-            None => print!("EOF at line {}", self.line),
+            None => print!("EOF at {}:{}", self.line, self.column),
             Some(c) => print!(
                 "character '{}' at {}:{}",
                 c.escape_default(),
@@ -63,6 +68,10 @@ impl SourceFile<'_> {
                 self.column
             ),
         }
+    }
+
+    fn print_location(&self) {
+        print!("{}:{}:{}", "<stdin>", self.line, self.column);
     }
 }
 
@@ -102,7 +111,19 @@ impl Assembler<'_> {
 
     fn parse_after_label(&mut self) {
         println!("parse_after_label");
+        self.parse_optional_instruction();
+        skip_optional_space(&mut self.src);
         skip_optional_comment(&mut self.src);
+    }
+
+    fn parse_optional_instruction(&mut self) {
+        println!("parse_optional_instruction");
+        let inst = lex_instruction(&mut self.src);
+        if inst.is_some() {
+            println!("found instruction: {}", inst.unwrap());
+            return;
+        }
+        return;
     }
 }
 
@@ -114,7 +135,7 @@ enum LabelLexerState {
 fn lex_label(src: &mut SourceFile) -> Option<String> {
     use crate::LabelLexerState::*;
 
-    let mut state = LabelLexerState::BeforeLabel;
+    let mut state = BeforeLabel;
     let mut ret = String::from("");
     loop {
         print!("lex_label loop, state: ");
@@ -137,7 +158,12 @@ fn lex_label(src: &mut SourceFile) -> Option<String> {
                 },
             },
             InLabel => match src.peek() {
-                None => panic!("unimplemented"),
+                None => {
+                    print!("unexpected end of file at ");
+                    src.print_location();
+                    println!("");
+                    panic!("unimplemented error handling")
+                }
                 Some(c) => match c {
                     'a'..='z' | 'A'..='Z' => {
                         ret.push(c);
@@ -148,7 +174,10 @@ fn lex_label(src: &mut SourceFile) -> Option<String> {
                         return Some(ret);
                     }
                     _ => {
-                        panic!("unimplemented");
+                        print!("invalid label character at ");
+                        src.print_location();
+                        println!("");
+                        panic!("unimplemented error handling");
                     }
                 },
             },
@@ -156,12 +185,70 @@ fn lex_label(src: &mut SourceFile) -> Option<String> {
     }
 }
 
+enum InstructionLexerState {
+    BeforeInstruction,
+    InInstruction,
+}
+
+fn lex_instruction(src: &mut SourceFile) -> Option<String> {
+    use crate::InstructionLexerState::*;
+
+    let mut state = BeforeInstruction;
+    let mut ret = String::from("");
+    loop {
+        print!("lex_instruction loop, state: ");
+        match state {
+            BeforeInstruction => print!("before instruction, "),
+            InInstruction => print!("in instruction, "),
+        }
+        src.print_current();
+        println!("");
+        match state {
+            BeforeInstruction => match src.peek() {
+                None => return None,
+                Some(c) => match c {
+                    'a'..='z' | 'A'..='Z' => {
+                        ret.push(c);
+                        src.advance();
+                        state = InInstruction;
+                    }
+                    _ => return None,
+                },
+            },
+            InInstruction => match src.peek() {
+                None => {
+                    print!("unexpected end of file at ");
+                    src.print_location();
+                    println!("");
+                    panic!("unimplemented error handling")
+                }
+                Some(c) => match c {
+                    'a'..='z' | 'A'..='Z' | '0'..='9' => {
+                        ret.push(c);
+                        src.advance();
+                    }
+                    _ => {
+                        return Some(ret);
+                    }
+                },
+            },
+        }
+    }
+}
+
+// Skip spaces in a location where spaces are mandatory
+// return whether spaces were skipped
 fn skip_space(src: &mut SourceFile) -> bool {
     print!("skip_space, ");
     src.print_current();
     println!("");
     match src.peek() {
-        None => panic!("unimplemented"),
+        None => {
+            print!("unexpected end of file at ");
+            src.print_location();
+            println!("");
+            panic!("unimplemented error handling");
+        }
         Some(c) => match c {
             ' ' | '\t' => {
                 src.advance();
@@ -179,7 +266,12 @@ fn skip_optional_space(src: &mut SourceFile) {
         src.print_current();
         println!("");
         match src.peek() {
-            None => return,
+            None => {
+                print!("unexpected end of file at ");
+                src.print_location();
+                println!("");
+                panic!("unimplemented error handling");
+            }
             Some(c) => match c {
                 ' ' | '\t' => src.advance(),
                 _ => return,
@@ -193,14 +285,24 @@ fn skip_optional_comment(src: &mut SourceFile) {
     src.print_current();
     println!("");
     match src.peek() {
-        None => panic!("unimplemented"),
+        None => {
+            print!("unexpected end of file at ");
+            src.print_location();
+            println!("");
+            panic!("unimplemented error handling");
+        }
         Some(c) => match c {
             '\n' => {
                 src.advance();
                 return;
             }
             ';' => src.advance(),
-            _ => panic!("unimplemented"),
+            _ => {
+                print!("expected comment or end of line at ");
+                src.print_location();
+                println!("");
+                panic!("unimplemented error handling");
+            }
         },
     }
     loop {
@@ -208,7 +310,12 @@ fn skip_optional_comment(src: &mut SourceFile) {
         src.print_current();
         println!("");
         match src.peek() {
-            None => panic!("unimplemented"),
+            None => {
+                print!("unexpected end of file at ");
+                src.print_location();
+                println!("");
+                panic!("unimplemented error handling");
+            }
             Some(c) => match c {
                 '\n' => {
                     src.advance();
@@ -219,4 +326,3 @@ fn skip_optional_comment(src: &mut SourceFile) {
         }
     }
 }
-
