@@ -13,12 +13,26 @@ line : LABEL OPTIONAL_SPACE after_label
 
 after_label : optional_instruction OPTIONAL_SPACE OPTIONAL_COMMENT
 
-optinal_instruction : INSTRUCTION optional_parameters
+optional_instruction : INSTRUCTION parameters
                     | Ø
 
-optional_parameters : SPACE PARAMETER OPTIONAL_SPACE more_parameters
+parameters : expression_list
            | Ø
 
-more_parameters : ',' OPTIONAL_SPACE PARAMETER OPTIONAL_SPACE more_parameters
-                | Ø
+expression_list : expression
+                | expression ',' expression
+
+expression : '#' sum
+           | sum
+
+sum : product
+    | product '+' product
+
+product : operand
+        | operand '*' operand
+
+operand : IDENTIFIER
+        | NUMBER
+        | '(' expression_list ')'
+
 ```
