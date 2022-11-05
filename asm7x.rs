@@ -14,10 +14,28 @@
 
 fn main() {
     let mut source = String::from("");
+    source.push_str(" processor 6502\n");
+    source.push_str(" org 32752\n");
+    source.push_str(" byte 78\n");
+    source.push_str(" byte 69\n");
+    source.push_str(" byte 83\n");
+    source.push_str(" byte 26\n");
+    source.push_str(" byte 1\n");
+    source.push_str(" byte 0\n");
+    source.push_str(" byte 0\n");
+    source.push_str(" byte 0\n");
+    source.push_str(" byte 0\n");
+    source.push_str(" byte 0\n");
+    source.push_str(" byte 0\n");
+    source.push_str(" byte 0\n");
+    source.push_str(" byte 0\n");
+    source.push_str(" byte 0\n");
+    source.push_str(" byte 0\n");
+    source.push_str(" byte 0\n");
     source.push_str("Reset:\tLDX\t#255\n");
     source.push_str("\tTXS\t\t;set up stack\n");
-    source.push_str("\tLDA\t#0\n");
-    source.push_str("\tSTA\t8192\n");
+    source.push_str("\tCLD\n");
+    source.push_str("\tSEI\n");
     let mut assembler = Assembler::new(&source);
     assembler.parse_source();
     assembler.assemble();
