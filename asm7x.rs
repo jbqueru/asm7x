@@ -22,6 +22,13 @@ fn main() {
     assembler.parse_source();
 }
 
+// Handling of source files, reading one character at a time
+//
+// knows the current character (if any), the remaining characaters,
+// the source code location.
+//
+// TODO: Handle includes, i.e. nested source files/streams
+//       that'll very probably require to take ownership of the characters
 struct SourceFile<'lt> {
     current: Option<char>,
     future: std::str::Chars<'lt>,
@@ -77,16 +84,17 @@ impl SourceFile<'_> {
         print!("{}:{}:{}", "<stdin>", self.line, self.column);
     }
 }
-/*
-enum ExpressionList {
-    One(Expression),
-    Two(Expression, Expression),
+
+struct CodeLine {
+    label: Option<String>,
+    instruction: Option<Instruction>,
 }
 
-enum Expression {
-    Number(i32),
+struct Instruction {
+    mnemonic: String,
+    parameter: Option<Number>,
 }
-*/
+
 enum Number {
     Immediate(i64),
     Address(i64),
@@ -103,47 +111,88 @@ impl Assembler<'_> {
         };
     }
 
-    fn parse_source(&mut self) {
+    // Parse an entire source file
+    //
+    // A source file is made of lines, parse lines one at a time
+    fn parse_source(&mut self) -> Vec<CodeLine> {
+        let mut parsed_file: Vec<CodeLine> = Vec::new();
         while !self.src.is_eof() {
-            self.parse_line();
+            let l = self.parse_line();
+            if l.label.is_some() {
+                println!("final label: {}", l.label.as_ref().unwrap());
+            }
+            if l.instruction.is_some() {
+                let i = l.instruction.as_ref().unwrap();
+                println!("final menmonic: {}", i.mnemonic);
+                if i.parameter.is_some() {
+                    match i.parameter.as_ref().unwrap() {
+                        crate::Number::Immediate(p) => println!("final immediate: {}", p),
+                        crate::Number::Address(p) => println!("final address: {}", p),
+                    }
+                }
+            }
+            parsed_file.push(l);
         }
         println!("");
+        return parsed_file;
     }
 
-    fn parse_line(&mut self) {
+    // Parse a line of source
+    //
+    // If line starts with a label, handle it and parse rest of line
+    // If line starts with a space, skip it and parse rest of line
+    // Otherwise, it must either be empty or a comment
+    fn parse_line(&mut self) -> CodeLine {
         println!("parse_line");
-        let label = lex_label(&mut self.src);
-        if label.is_some() {
-            println!("found label: {}", label.unwrap());
+        let mut ret = CodeLine {
+            label: None,
+            instruction: None,
+        };
+        ret.label = lex_label(&mut self.src);
+        if ret.label.is_some() {
+            println!("found label: {}", ret.label.as_ref().unwrap());
             skip_optional_space(&mut self.src);
-            self.parse_after_label();
-            return;
+            ret.instruction = self.parse_after_label();
+            return ret;
         }
         if skip_space(&mut self.src) {
-            self.parse_after_label();
-            return;
+            ret.instruction = self.parse_after_label();
+            return ret;
         }
         skip_optional_comment(&mut self.src);
+        return ret;
     }
 
-    fn parse_after_label(&mut self) {
+    // Parse the rest of the line after the optional label
+    //
+    // The actual instruction, followed by optional space, then optional comment
+    fn parse_after_label(&mut self) -> Option<Instruction> {
         println!("parse_after_label");
-        self.parse_optional_instruction();
+        let ret = self.parse_instruction();
         skip_optional_space(&mut self.src);
         skip_optional_comment(&mut self.src);
+        return ret;
     }
 
-    fn parse_optional_instruction(&mut self) {
-        println!("parse_optional_instruction");
+    // Parse the instruction on a line
+    //
+    // Look for the mnemonic, followed by the parameters
+    fn parse_instruction(&mut self) -> Option<Instruction> {
+        println!("parse_instruction");
         let inst = lex_instruction(&mut self.src);
         if inst.is_some() {
-            println!("found instruction: {}", inst.unwrap());
+            let mut ret = Instruction {
+                mnemonic: inst.unwrap(),
+                parameter: None,
+            };
+            println!("found instruction: {}", ret.mnemonic);
             if !skip_space(&mut self.src) {
-                return;
+                return Some(ret);
             }
-            self.parse_parameters();
+            ret.parameter = self.parse_parameters();
+            return Some(ret);
         }
-        return;
+        return None;
     }
 
     fn parse_parameters(&mut self) -> Option<Number> {
@@ -177,7 +226,6 @@ impl Assembler<'_> {
             },
         }
     }
-
 }
 
 enum LabelLexerState {
