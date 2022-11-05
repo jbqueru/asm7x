@@ -272,11 +272,35 @@ impl Assembler<'_> {
 
     fn assemble(&mut self) {
         let mut address = 0_u32;
+        println!("#!/bin/bash");
         for line in &self.parsed {
             if let Some(i) = &line.instruction {
                 match i.mnemonic.as_str() {
-                    "processor" => {
-                        println!("ignoring directive: {}", i.mnemonic);
+                    "byte" => {
+                        if let Some(p) = &i.parameter {
+                            match p {
+                                crate::Number::Address(p) => {
+                                    match p {
+                                        0..=255 => {
+                                            println!("# emitting raw byte {} at {}", p, address);
+                                            address += 1;
+                                            println!("echo -en '\\x{:02x}'", p);
+                                        },
+                                        _ => {
+                                            println!("invalid value for byte");
+                                            panic!("unimplemented error handling")
+                                        },
+                                    }
+                                },
+                                _ => {
+                                    println!("wrong parameter type for byte");
+                                    panic!("unimplemented error handling")
+                                },
+                            }
+                        } else {
+                            println!("missing parameter for byte");
+                            panic!("unimplemented error handling")
+                        }
                     },
                     "org" => {
                         if let Some(p) = &i.parameter {
@@ -284,7 +308,7 @@ impl Assembler<'_> {
                                 crate::Number::Address(p) => {
                                     match p {
                                         0..=65535 => {
-                                            println!("setting origin to {}", p);
+                                            println!("# setting origin to {}", p);
                                             address = *p as u32;
                                         },
                                         _ => {
@@ -303,6 +327,67 @@ impl Assembler<'_> {
                             panic!("unimplemented error handling")
                         }
                     },
+                    "processor" => {
+                        println!("# ignoring directive: {}", i.mnemonic);
+                    },
+                    "CLD" => {
+                        if i.parameter.is_none() {
+                            println!("# emitting CLD opcode 0x{:02X} at {}", 0xD8, address);
+                            address += 1;
+                            println!("echo -en '\\x{:02x}'", 0xD8);
+                        } else {
+                            println!("unexpected parameter for CLD");
+                            panic!("unimplemented error handling")
+                        }
+                    },
+                    "LDX" => {
+                        if let Some(p) = &i.parameter {
+                            match p {
+                                crate::Number::Immediate(p) => {
+                                    match p {
+                                        0..=255 => {
+                                            println!("# emitting LDX opcode 0x{:02X} at {}", 0xA2, address);
+                                            address += 1;
+                                            println!("# emitting LDX parameter {} at {}", p, address);
+                                            address += 1;
+                                            println!("echo -en '\\x{:02x}\\x{:02x}'", 0xA2, p);
+                                        },
+                                        _ => {
+                                            println!("invalid parameter value for LDX");
+                                            panic!("unimplemented error handling")
+                                        },
+                                    }
+                                },
+                                _ => {
+                                    println!("wrong parameter type for LDX");
+                                    panic!("unimplemented error handling")
+                                },
+                            }
+                        } else {
+                            println!("missing parameter for LDX");
+                            panic!("unimplemented error handling")
+                        }
+                    },
+                    "SEI" => {
+                        if i.parameter.is_none() {
+                            println!("# emitting SEI opcode 0x{:02X} at {}", 0x78, address);
+                            address += 1;
+                            println!("echo -en '\\x{:02x}'", 0x78);
+                        } else {
+                            println!("unexpected parameter for SEI");
+                            panic!("unimplemented error handling")
+                        }
+                    },
+                    "TXS" => {
+                        if i.parameter.is_none() {
+                            println!("# emitting TXS opcode 0x{:02X} at {}", 0x9A, address);
+                            address += 1;
+                            println!("echo -en '\\x{:02x}'", 0x9A);
+                        } else {
+                            println!("unexpected parameter for TXS");
+                            panic!("unimplemented error handling")
+                        }
+                    },
                     _ => {
                         println!("unknown instruction: {}", i.mnemonic);
                         panic!("unimplemented error handling")
@@ -310,6 +395,7 @@ impl Assembler<'_> {
                 }
             }
         }
+        println!();
     }
 
 }
