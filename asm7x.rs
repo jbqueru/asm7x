@@ -37,7 +37,13 @@ fn main() {
     source.push_str("\tTXS\t\t;set up stack\n");
     source.push_str("\tCLD\n");
     source.push_str("\tSEI\n");
-    source.push_str("\tJMP\t32773\n");
+    source.push_str("\tBIT\t8194\n");
+    source.push_str("\tBCS\t32773\n");
+    source.push_str("\tBIT\t8194\n");
+    source.push_str("\tBCS\t32778\n");
+
+    source.push_str("\tJMP\t32783\n");
+    
     source.push_str("\torg 65529\n");
     source.push_str("\tRTI\n");
     source.push_str(" byte 249\n");
@@ -356,14 +362,19 @@ impl Assembler<'_> {
                     "BCS" => {
                         if let Some(p) = &i.parameter {
                             match p {
-                                crate::Number::Immediate(p) => {
+                                crate::Number::Address(p) => {
                                     match p {
-                                        0..=255 => {
+                                        0..=65535 => {
+                                            let destination = *p as u32;
+                                            if destination > address || destination < address - 128 {
+                                                println!("branch out of range for BCS");
+                                                panic!("unimplemented error handling")
+                                            }
                                             println!("# emitting BCS opcode 0x{:02X} at {}", 0xB0, address);
                                             address += 1;
-                                            println!("# emitting BCS parameter {} at {}", p, address);
+                                            println!("# emitting BCS parameter {} at {}", destination + 256 - address, address);
                                             address += 1;
-                                            println!("echo -en '\\x{:02x}\\x{:02x}'", 0xB0, p);
+                                            println!("echo -en '\\x{:02x}\\x{:02x}'", 0xB0, destination + 256 - address);
                                         },
                                         _ => {
                                             println!("invalid parameter value for BCS");
@@ -378,6 +389,67 @@ impl Assembler<'_> {
                             }
                         } else {
                             println!("missing parameter for BCS");
+                            panic!("unimplemented error handling")
+                        }
+                    },
+                    "BIT" => {
+                        if let Some(p) = &i.parameter {
+                            match p {
+                                crate::Number::Address(p) => {
+                                    match p {
+                                        0..=65535 => {
+                                            println!("# emitting BIT opcode 0x{:02X} at {}", 0x2C, address);
+                                            address += 1;
+                                            println!("# emitting BIT parameter {} at {}", p, address);
+                                            address += 2;
+                                            println!("echo -en '\\x{:02x}\\x{:02x}\\x{:02x}'", 0x2C, p & 255, p >> 8);
+                                        },
+                                        _ => {
+                                            println!("invalid parameter value for BIT");
+                                            panic!("unimplemented error handling")
+                                        },
+                                    }
+                                },
+                                _ => {
+                                    println!("wrong parameter type for BIT");
+                                    panic!("unimplemented error handling")
+                                },
+                            }
+                        } else {
+                            println!("missing parameter for BIT");
+                            panic!("unimplemented error handling")
+                        }
+                    },
+                    "BPL" => {
+                        if let Some(p) = &i.parameter {
+                            match p {
+                                crate::Number::Address(p) => {
+                                    match p {
+                                        0..=65535 => {
+                                            let destination = *p as u32;
+                                            if destination > address || destination < address - 128 {
+                                                println!("branch out of range for BPL");
+                                                panic!("unimplemented error handling")
+                                            }
+                                            println!("# emitting BPL opcode 0x{:02X} at {}", 0xD0, address);
+                                            address += 1;
+                                            println!("# emitting BPL parameter {} at {}", destination + 256 - address, address);
+                                            address += 1;
+                                            println!("echo -en '\\x{:02x}\\x{:02x}'", 0xD0, destination + 256 - address);
+                                        },
+                                        _ => {
+                                            println!("invalid parameter value for BPL");
+                                            panic!("unimplemented error handling")
+                                        },
+                                    }
+                                },
+                                _ => {
+                                    println!("wrong parameter type for BPL");
+                                    panic!("unimplemented error handling")
+                                },
+                            }
+                        } else {
+                            println!("missing parameter for BPL");
                             panic!("unimplemented error handling")
                         }
                     },
@@ -411,7 +483,7 @@ impl Assembler<'_> {
                                             address += 1;
                                             println!("# emitting JMP parameter {} at {}", p, address);
                                             address += 2;
-                                            println!("echo -en '\\x{:02x}\\x{:02x}\\x{:02x}'", 0xA2, p & 255, p >> 8);
+                                            println!("echo -en '\\x{:02x}\\x{:02x}\\x{:02x}'", 0x4C, p & 255, p >> 8);
                                         },
                                         _ => {
                                             println!("invalid parameter value for JMP");
