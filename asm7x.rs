@@ -1,4 +1,4 @@
-// Copyright 2022 Jean-Baptiste "JBQ" "Djaybee" Queru
+// Copyright 2022 Jean-Baptiste M. "JBQ" "Djaybee" Queru
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,6 +20,8 @@ fn main() {
     source.push_str(" byte 69\n");
     source.push_str(" byte 83\n");
     source.push_str(" byte 26\n");
+    source.push_str(" byte 2\n");
+    source.push_str(" byte 1\n");
     source.push_str(" byte 1\n");
     source.push_str(" byte 0\n");
     source.push_str(" byte 0\n");
@@ -30,12 +32,20 @@ fn main() {
     source.push_str(" byte 0\n");
     source.push_str(" byte 0\n");
     source.push_str(" byte 0\n");
-    source.push_str(" byte 0\n");
-    source.push_str(" byte 0\n");
-    source.push_str("Reset:\tLDX\t#255\n");
+    source.push_str("Reset:\n");
+    source.push_str("\tLDX\t#255\n");
     source.push_str("\tTXS\t\t;set up stack\n");
     source.push_str("\tCLD\n");
     source.push_str("\tSEI\n");
+    source.push_str("\tJMP\t32773\n");
+    source.push_str("\torg 65529\n");
+    source.push_str("\tRTI\n");
+    source.push_str(" byte 249\n");
+    source.push_str(" byte 255\n");
+    source.push_str(" byte 0\n");
+    source.push_str(" byte 128\n");
+    source.push_str(" byte 249\n");
+    source.push_str(" byte 255\n");
     let mut assembler = Assembler::new(&source);
     assembler.parse_source();
     assembler.list();
@@ -308,8 +318,21 @@ impl Assembler<'_> {
                                 crate::Number::Address(p) => {
                                     match p {
                                         0..=65535 => {
-                                            println!("# setting origin to {}", p);
-                                            address = *p as u32;
+                                            let newaddress = *p as u32;
+                                            if address == 0 {
+                                                println!("# setting origin to {}", newaddress);
+                                                address = newaddress;
+                                            } else if address < newaddress {
+                                                println!("# advancing to {} ({} bytes)", p, newaddress - address);
+                                                println!("for i in {{{}..{}}}", address, newaddress - 1);
+                                                println!("do");
+                                                println!("  echo -en '\\x{:02x}'", 0xEA);
+                                                println!("done");
+                                                address = newaddress;
+                                            } else {
+                                                println!("attempt to move origin backward");
+                                                panic!("unimplemented error handling")
+                                            }
                                         },
                                         _ => {
                                             println!("invalid address for org");
@@ -330,6 +353,44 @@ impl Assembler<'_> {
                     "processor" => {
                         println!("# ignoring directive: {}", i.mnemonic);
                     },
+                    "BCS" => {
+                        if let Some(p) = &i.parameter {
+                            match p {
+                                crate::Number::Immediate(p) => {
+                                    match p {
+                                        0..=255 => {
+                                            println!("# emitting BCS opcode 0x{:02X} at {}", 0xB0, address);
+                                            address += 1;
+                                            println!("# emitting BCS parameter {} at {}", p, address);
+                                            address += 1;
+                                            println!("echo -en '\\x{:02x}\\x{:02x}'", 0xB0, p);
+                                        },
+                                        _ => {
+                                            println!("invalid parameter value for BCS");
+                                            panic!("unimplemented error handling")
+                                        },
+                                    }
+                                },
+                                _ => {
+                                    println!("wrong parameter type for BCS");
+                                    panic!("unimplemented error handling")
+                                },
+                            }
+                        } else {
+                            println!("missing parameter for BCS");
+                            panic!("unimplemented error handling")
+                        }
+                    },
+                    "CLC" => {
+                        if i.parameter.is_none() {
+                            println!("# emitting CLC opcode 0x{:02X} at {}", 0x18, address);
+                            address += 1;
+                            println!("echo -en '\\x{:02x}'", 0x18);
+                        } else {
+                            println!("unexpected parameter for CLC");
+                            panic!("unimplemented error handling")
+                        }
+                    },
                     "CLD" => {
                         if i.parameter.is_none() {
                             println!("# emitting CLD opcode 0x{:02X} at {}", 0xD8, address);
@@ -337,6 +398,34 @@ impl Assembler<'_> {
                             println!("echo -en '\\x{:02x}'", 0xD8);
                         } else {
                             println!("unexpected parameter for CLD");
+                            panic!("unimplemented error handling")
+                        }
+                    },
+                    "JMP" => {
+                        if let Some(p) = &i.parameter {
+                            match p {
+                                crate::Number::Address(p) => {
+                                    match p {
+                                        0..=65535 => {
+                                            println!("# emitting JMP opcode 0x{:02X} at {}", 0x4C, address);
+                                            address += 1;
+                                            println!("# emitting JMP parameter {} at {}", p, address);
+                                            address += 2;
+                                            println!("echo -en '\\x{:02x}\\x{:02x}\\x{:02x}'", 0xA2, p & 255, p >> 8);
+                                        },
+                                        _ => {
+                                            println!("invalid parameter value for JMP");
+                                            panic!("unimplemented error handling")
+                                        },
+                                    }
+                                },
+                                _ => {
+                                    println!("wrong parameter type for JMP");
+                                    panic!("unimplemented error handling")
+                                },
+                            }
+                        } else {
+                            println!("missing parameter for JMP");
                             panic!("unimplemented error handling")
                         }
                     },
@@ -365,6 +454,16 @@ impl Assembler<'_> {
                             }
                         } else {
                             println!("missing parameter for LDX");
+                            panic!("unimplemented error handling")
+                        }
+                    },
+                    "RTI" => {
+                        if i.parameter.is_none() {
+                            println!("# emitting RTI opcode 0x{:02X} at {}", 0x40, address);
+                            address += 1;
+                            println!("echo -en '\\x{:02x}'", 0x40);
+                        } else {
+                            println!("unexpected parameter for RTI");
                             panic!("unimplemented error handling")
                         }
                     },
