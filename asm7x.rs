@@ -20,6 +20,7 @@ fn main() {
     source.push_str("\tSTA\t8192\n");
     let mut assembler = Assembler::new(&source);
     assembler.parse_source();
+    assembler.assemble();
 }
 
 // Handling of source files, reading one character at a time
@@ -105,20 +106,21 @@ enum Number {
 
 struct Assembler<'lt> {
     src: SourceFile<'lt>,
+    parsed: Vec<CodeLine>,
 }
 
 impl Assembler<'_> {
     fn new(s: &str) -> Assembler {
         return Assembler {
             src: SourceFile::new(s),
+            parsed: Vec::new(),
         };
     }
 
     // Parse an entire source file
     //
     // A source file is made of lines, parse lines one at a time
-    fn parse_source(&mut self) -> Vec<CodeLine> {
-        let mut parsed_file: Vec<CodeLine> = Vec::new();
+    fn parse_source(&mut self) {
         while !self.src.is_eof() {
             let l = self.parse_line();
             if l.label.is_some() {
@@ -134,10 +136,9 @@ impl Assembler<'_> {
                     }
                 }
             }
-            parsed_file.push(l);
+            self.parsed.push(l);
         }
         println!();
-        parsed_file
     }
 
     // Parse a line of source
@@ -227,6 +228,25 @@ impl Assembler<'_> {
                     }
                 },
             },
+        }
+    }
+
+    fn assemble(&mut self) {
+        for line in &self.parsed {
+            if let Some(l) = &line.label {
+                print!("{}:", l);
+            }
+            print!(" ");
+            if let Some(i) = &line.instruction {
+                print!("{}", i.mnemonic);
+                if let Some(p) = &i.parameter {
+                    match p {
+                        crate::Number::Immediate(p) => print!(" #{}", p),
+                        crate::Number::Address(p) => print!(" {}", p),
+                    }
+                }
+            }
+            println!();
         }
     }
 }
@@ -340,6 +360,7 @@ fn lex_instruction(src: &mut SourceFile) -> Option<String> {
     }
 }
 
+/*
 enum ParameterLexerState {
     BeforeParameter,
     InParameter,
@@ -390,6 +411,7 @@ fn lex_parameter(src: &mut SourceFile) -> Option<String> {
         }
     }
 }
+*/
 
 enum NumberLexerState {
     BeforeNumber,
