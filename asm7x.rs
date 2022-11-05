@@ -38,6 +38,7 @@ fn main() {
     source.push_str("\tSEI\n");
     let mut assembler = Assembler::new(&source);
     assembler.parse_source();
+    assembler.list();
     assembler.assemble();
 }
 
@@ -249,7 +250,7 @@ impl Assembler<'_> {
         }
     }
 
-    fn assemble(&mut self) {
+    fn list(&mut self) {
         for line in &self.parsed {
             if let Some(l) = &line.label {
                 print!("{}:", l);
@@ -266,7 +267,51 @@ impl Assembler<'_> {
             }
             println!();
         }
+        println!();
     }
+
+    fn assemble(&mut self) {
+        let mut address = 0_u32;
+        for line in &self.parsed {
+            if let Some(i) = &line.instruction {
+                match i.mnemonic.as_str() {
+                    "processor" => {
+                        println!("ignoring directive: {}", i.mnemonic);
+                    },
+                    "org" => {
+                        if let Some(p) = &i.parameter {
+                            match p {
+                                crate::Number::Address(p) => {
+                                    match p {
+                                        0..=65535 => {
+                                            println!("setting origin to {}", p);
+                                            address = *p as u32;
+                                        },
+                                        _ => {
+                                            println!("invalid address for org");
+                                            panic!("unimplemented error handling")
+                                        },
+                                    }
+                                },
+                                _ => {
+                                    println!("wrong parameter type for org");
+                                    panic!("unimplemented error handling")
+                                },
+                            }
+                        } else {
+                            println!("missing parameter for org");
+                            panic!("unimplemented error handling")
+                        }
+                    },
+                    _ => {
+                        println!("unknown instruction: {}", i.mnemonic);
+                        panic!("unimplemented error handling")
+                    },
+                }
+            }
+        }
+    }
+
 }
 
 enum LabelLexerState {
