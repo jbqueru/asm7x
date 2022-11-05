@@ -14,7 +14,10 @@
 
 fn main() {
     let mut source = String::from("");
-    source.push_str("JBQ:\tTAX D2, D5\t\t;test1\n");
+    source.push_str("Reset:\tLDX\t#255\n");
+    source.push_str("\tTXS\t\t;set up stack\n");
+    source.push_str("\tLDA\t#0\n");
+    source.push_str("\tSTA\t8192\n");
     let mut assembler = Assembler::new(&source);
     assembler.parse_source();
 }
@@ -74,6 +77,20 @@ impl SourceFile<'_> {
         print!("{}:{}:{}", "<stdin>", self.line, self.column);
     }
 }
+/*
+enum ExpressionList {
+    One(Expression),
+    Two(Expression, Expression),
+}
+
+enum Expression {
+    Number(i32),
+}
+*/
+enum Number {
+    Immediate(i64),
+    Address(i64),
+}
 
 struct Assembler<'lt> {
     src: SourceFile<'lt>,
@@ -124,23 +141,13 @@ impl Assembler<'_> {
             if !skip_space(&mut self.src) {
                 return;
             }
-            self.parse_optional_parameters();
+            self.parse_parameters();
         }
         return;
     }
 
-    fn parse_optional_parameters(&mut self) {
-        println!("parse_optional_parameters");
-        let param = lex_parameter(&mut self.src);
-        if param.is_some() {
-            println!("found parameter: {}", param.unwrap());
-            skip_optional_space(&mut self.src);
-            self.parse_more_parameters();
-        }
-    }
-
-    fn parse_more_parameters(&mut self) {
-        println!("parse_more_parameters");
+    fn parse_parameters(&mut self) -> Option<Number> {
+        println!("parse_parameters");
         match self.src.peek() {
             None => {
                 print!("unexpected end of file at ");
@@ -149,30 +156,28 @@ impl Assembler<'_> {
                 panic!("unimplemented error handling");
             }
             Some(c) => match c {
-                ',' => {
+                '#' => {
                     self.src.advance();
                     skip_optional_space(&mut self.src);
+                    match lex_number(&mut self.src) {
+                        None => return None,
+                        Some(n) => {
+                            println!("found immediate: {}", n);
+                            return Some(Number::Immediate(n));
+                        }
+                    }
                 }
-                _ => {
-                    return;
-                }
+                _ => match lex_number(&mut self.src) {
+                    None => return None,
+                    Some(n) => {
+                        println!("found address: {}", n);
+                        return Some(Number::Address(n));
+                    }
+                },
             },
         }
-        let param = lex_parameter(&mut self.src);
-        match param {
-            None => {
-                print!("didn't find require parameter at ");
-                self.src.print_location();
-                println!("");
-                panic!("unimplemented error handling");
-            }
-            Some(p) => {
-                println!("found parameter: {}", p);
-                skip_optional_space(&mut self.src);
-                self.parse_more_parameters();
-            }
-        }
     }
+
 }
 
 enum LabelLexerState {
@@ -335,6 +340,57 @@ fn lex_parameter(src: &mut SourceFile) -> Option<String> {
     }
 }
 
+enum NumberLexerState {
+    BeforeNumber,
+    InNumber,
+}
+
+fn lex_number(src: &mut SourceFile) -> Option<i64> {
+    use crate::NumberLexerState::*;
+
+    let mut state = BeforeNumber;
+    let mut ret = 0_i64;
+    loop {
+        print!("lex_number loop, state: ");
+        match state {
+            BeforeNumber => print!("before number, "),
+            InNumber => print!("in number, "),
+        }
+        src.print_current();
+        println!("");
+        match state {
+            BeforeNumber => match src.peek() {
+                None => return None,
+                Some(c) => match c {
+                    '0'..='9' => {
+                        src.advance();
+                        ret = ret * 10 + i64::from(c.to_digit(10).unwrap());
+                        state = InNumber;
+                    }
+                    _ => return None,
+                },
+            },
+            InNumber => match src.peek() {
+                None => {
+                    print!("unexpected end of file at ");
+                    src.print_location();
+                    println!("");
+                    panic!("unimplemented error handling")
+                }
+                Some(c) => match c {
+                    '0'..='9' => {
+                        src.advance();
+                        ret = ret * 10 + i64::from(c.to_digit(10).unwrap());
+                    }
+                    _ => {
+                        return Some(ret);
+                    }
+                },
+            },
+        }
+    }
+}
+
 // Skip spaces in a location where spaces are mandatory
 // return whether spaces were skipped
 fn skip_space(src: &mut SourceFile) -> bool {
@@ -425,21 +481,21 @@ fn skip_optional_comment(src: &mut SourceFile) {
         }
     }
 }
-
+/*
 enum ParameterType {
-    Absolute,       // 2 types
-    Arithmetic,     // 8 types
-    Branch,         // 1 type
-    Bit,            // 2 types
-    CompareIndex,   // 3 types
-    Implied,        // 1 type (!)
-    IncDec,         // 4 types
-    Jmp,            // 2 types
-    Jsr,            // 1 type
-    LoadIndex,      // 5 types (LDX and LDY different)
-    Shift,          // 5 types
-    Store,          // 7 types
-    StoreIndex,     // 3 types (LDX and LDY different)
+    Absolute,     // 2 types
+    Arithmetic,   // 8 types
+    Branch,       // 1 type
+    Bit,          // 2 types
+    CompareIndex, // 3 types
+    Implied,      // 1 type (!)
+    IncDec,       // 4 types
+    Jmp,          // 2 types
+    Jsr,          // 1 type
+    LoadIndex,    // 5 types (LDX and LDY different)
+    Shift,        // 5 types
+    Store,        // 7 types
+    StoreIndex,   // 3 types (LDX and LDY different)
 }
 
 struct ParameterInfo {
@@ -448,9 +504,7 @@ struct ParameterInfo {
 
 impl ParameterInfo {
     fn new(p: ParameterType) -> ParameterInfo {
-        return ParameterInfo {
-            ptype : p,
-        }
+        return ParameterInfo { ptype: p };
     }
 }
 
@@ -514,6 +568,7 @@ fn prepare_parameter_info() {
     pinfo.insert("TXS", ParameterInfo::new(Implied));
     pinfo.insert("TYA", ParameterInfo::new(Implied));
 }
+*/
 
 /*
 12345678901234567890123456789012345678901234567890123456789012345678901234567890
