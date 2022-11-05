@@ -34,21 +34,23 @@ struct SourceFile<'lt> {
     future: std::str::Chars<'lt>,
     line: u32,
     column: u32,
+    file: String,
 }
 
 impl SourceFile<'_> {
-    fn new(s: &String) -> SourceFile {
+    fn new(s: &str) -> SourceFile {
         let mut iter = s.chars();
-        return SourceFile::<'_> {
+        SourceFile::<'_> {
             current: iter.next(),
             future: iter,
             line: 1,
             column: 1,
-        };
+            file: String::from("<builtin>"),
+        }
     }
 
     fn peek(&self) -> Option<char> {
-        return self.current;
+        self.current
     }
 
     fn advance(&mut self) {
@@ -65,15 +67,16 @@ impl SourceFile<'_> {
     }
 
     fn is_eof(&self) -> bool {
-        return self.current.is_none();
+        self.current.is_none()
     }
 
     fn print_current(&self) {
         match self.current {
-            None => print!("EOF at {}:{}", self.line, self.column),
+            None => print!("EOF at {}:{}:{}", self.file, self.line, self.column),
             Some(c) => print!(
-                "character '{}' at {}:{}",
+                "character '{}' at {}:{}:{}",
                 c.escape_default(),
+                self.file,
                 self.line,
                 self.column
             ),
@@ -81,7 +84,7 @@ impl SourceFile<'_> {
     }
 
     fn print_location(&self) {
-        print!("{}:{}:{}", "<stdin>", self.line, self.column);
+        print!("{}:{}:{}", self.file, self.line, self.column);
     }
 }
 
@@ -105,7 +108,7 @@ struct Assembler<'lt> {
 }
 
 impl Assembler<'_> {
-    fn new(s: &String) -> Assembler {
+    fn new(s: &str) -> Assembler {
         return Assembler {
             src: SourceFile::new(s),
         };
@@ -133,8 +136,8 @@ impl Assembler<'_> {
             }
             parsed_file.push(l);
         }
-        println!("");
-        return parsed_file;
+        println!();
+        parsed_file
     }
 
     // Parse a line of source
@@ -160,7 +163,7 @@ impl Assembler<'_> {
             return ret;
         }
         skip_optional_comment(&mut self.src);
-        return ret;
+        ret
     }
 
     // Parse the rest of the line after the optional label
@@ -171,7 +174,7 @@ impl Assembler<'_> {
         let ret = self.parse_instruction();
         skip_optional_space(&mut self.src);
         skip_optional_comment(&mut self.src);
-        return ret;
+        ret
     }
 
     // Parse the instruction on a line
@@ -180,9 +183,9 @@ impl Assembler<'_> {
     fn parse_instruction(&mut self) -> Option<Instruction> {
         println!("parse_instruction");
         let inst = lex_instruction(&mut self.src);
-        if inst.is_some() {
+        if let Some(i) = inst {
             let mut ret = Instruction {
-                mnemonic: inst.unwrap(),
+                mnemonic: i,
                 parameter: None,
             };
             println!("found instruction: {}", ret.mnemonic);
@@ -192,7 +195,7 @@ impl Assembler<'_> {
             ret.parameter = self.parse_parameters();
             return Some(ret);
         }
-        return None;
+        None
     }
 
     fn parse_parameters(&mut self) -> Option<Number> {
@@ -201,7 +204,7 @@ impl Assembler<'_> {
             None => {
                 print!("unexpected end of file at ");
                 self.src.print_location();
-                println!("");
+                println!();
                 panic!("unimplemented error handling");
             }
             Some(c) => match c {
@@ -209,18 +212,18 @@ impl Assembler<'_> {
                     self.src.advance();
                     skip_optional_space(&mut self.src);
                     match lex_number(&mut self.src) {
-                        None => return None,
+                        None => None,
                         Some(n) => {
                             println!("found immediate: {}", n);
-                            return Some(Number::Immediate(n));
+                            Some(Number::Immediate(n))
                         }
                     }
                 }
                 _ => match lex_number(&mut self.src) {
-                    None => return None,
+                    None => None,
                     Some(n) => {
                         println!("found address: {}", n);
-                        return Some(Number::Address(n));
+                        Some(Number::Address(n))
                     }
                 },
             },
@@ -245,7 +248,7 @@ fn lex_label(src: &mut SourceFile) -> Option<String> {
             InLabel => print!("in label, "),
         }
         src.print_current();
-        println!("");
+        println!();
         match state {
             BeforeLabel => match src.peek() {
                 None => return None,
@@ -262,7 +265,7 @@ fn lex_label(src: &mut SourceFile) -> Option<String> {
                 None => {
                     print!("unexpected end of file at ");
                     src.print_location();
-                    println!("");
+                    println!();
                     panic!("unimplemented error handling");
                 }
                 Some(c) => match c {
@@ -277,7 +280,7 @@ fn lex_label(src: &mut SourceFile) -> Option<String> {
                     _ => {
                         print!("invalid label character at ");
                         src.print_location();
-                        println!("");
+                        println!();
                         panic!("unimplemented error handling");
                     }
                 },
@@ -303,7 +306,7 @@ fn lex_instruction(src: &mut SourceFile) -> Option<String> {
             InInstruction => print!("in instruction, "),
         }
         src.print_current();
-        println!("");
+        println!();
         match state {
             BeforeInstruction => match src.peek() {
                 None => return None,
@@ -320,7 +323,7 @@ fn lex_instruction(src: &mut SourceFile) -> Option<String> {
                 None => {
                     print!("unexpected end of file at ");
                     src.print_location();
-                    println!("");
+                    println!();
                     panic!("unimplemented error handling");
                 }
                 Some(c) => match c {
@@ -354,7 +357,7 @@ fn lex_parameter(src: &mut SourceFile) -> Option<String> {
             InParameter => print!("in parameter, "),
         }
         src.print_current();
-        println!("");
+        println!();
         match state {
             BeforeParameter => match src.peek() {
                 None => return None,
@@ -371,7 +374,7 @@ fn lex_parameter(src: &mut SourceFile) -> Option<String> {
                 None => {
                     print!("unexpected end of file at ");
                     src.print_location();
-                    println!("");
+                    println!();
                     panic!("unimplemented error handling")
                 }
                 Some(c) => match c {
@@ -405,7 +408,7 @@ fn lex_number(src: &mut SourceFile) -> Option<i64> {
             InNumber => print!("in number, "),
         }
         src.print_current();
-        println!("");
+        println!();
         match state {
             BeforeNumber => match src.peek() {
                 None => return None,
@@ -422,7 +425,7 @@ fn lex_number(src: &mut SourceFile) -> Option<i64> {
                 None => {
                     print!("unexpected end of file at ");
                     src.print_location();
-                    println!("");
+                    println!();
                     panic!("unimplemented error handling")
                 }
                 Some(c) => match c {
@@ -444,21 +447,21 @@ fn lex_number(src: &mut SourceFile) -> Option<i64> {
 fn skip_space(src: &mut SourceFile) -> bool {
     print!("skip_space, ");
     src.print_current();
-    println!("");
+    println!();
     match src.peek() {
         None => {
             print!("unexpected end of file at ");
             src.print_location();
-            println!("");
+            println!();
             panic!("unimplemented error handling");
         }
         Some(c) => match c {
             ' ' | '\t' => {
                 src.advance();
                 skip_optional_space(src);
-                return true;
+                true
             }
-            _ => return false,
+            _ => false,
         },
     }
 }
@@ -467,12 +470,12 @@ fn skip_optional_space(src: &mut SourceFile) {
     loop {
         print!("skip_optional_spaces loop, ");
         src.print_current();
-        println!("");
+        println!();
         match src.peek() {
             None => {
                 print!("unexpected end of file at ");
                 src.print_location();
-                println!("");
+                println!();
                 panic!("unimplemented error handling");
             }
             Some(c) => match c {
@@ -486,12 +489,12 @@ fn skip_optional_space(src: &mut SourceFile) {
 fn skip_optional_comment(src: &mut SourceFile) {
     print!("skip_optional_comment, ");
     src.print_current();
-    println!("");
+    println!();
     match src.peek() {
         None => {
             print!("unexpected end of file at ");
             src.print_location();
-            println!("");
+            println!();
             panic!("unimplemented error handling");
         }
         Some(c) => match c {
@@ -503,7 +506,7 @@ fn skip_optional_comment(src: &mut SourceFile) {
             _ => {
                 print!("expected comment or end of line at ");
                 src.print_location();
-                println!("");
+                println!();
                 panic!("unimplemented error handling");
             }
         },
@@ -511,12 +514,12 @@ fn skip_optional_comment(src: &mut SourceFile) {
     loop {
         print!("skip_optional_comment loop, ");
         src.print_current();
-        println!("");
+        println!();
         match src.peek() {
             None => {
                 print!("unexpected end of file at ");
                 src.print_location();
-                println!("");
+                println!();
                 panic!("unimplemented error handling");
             }
             Some(c) => match c {
