@@ -507,14 +507,12 @@ fn assemble(parsed: &Vec<CodeLine>) {
 
 struct Parser<'lt> {
     src: SourceFile<'lt>,
-//    parsed: Vec<CodeLine>,
 }
 
 impl Parser<'_> {
     fn new(s: &str) -> Parser {
         return Parser {
             src: SourceFile::new(s),
-//            parsed: Vec::new(),
         };
     }
 
@@ -566,7 +564,7 @@ impl Parser<'_> {
             ret.instruction = self.parse_after_label();
             return ret;
         }
-        skip_optional_comment(&mut self.src);
+        self.skip_optional_comment();
         ret
     }
 
@@ -577,7 +575,7 @@ impl Parser<'_> {
         println!("parse_after_label");
         let ret = self.parse_instruction();
         skip_optional_space(&mut self.src);
-        skip_optional_comment(&mut self.src);
+        self.skip_optional_comment();
         ret
     }
 
@@ -634,6 +632,53 @@ impl Parser<'_> {
         }
     }
 
+    // Lex and skip comment and EOL
+    fn skip_optional_comment(&mut self) {
+        print!("skip_optional_comment, ");
+        self.src.print_current();
+        println!();
+        match self.src.peek() {
+            None => {
+                print!("unexpected end of file at ");
+                self.src.print_location();
+                println!();
+                panic!("unimplemented error handling");
+            }
+            Some(c) => match c {
+                '\n' => {
+                    self.src.advance();
+                    return;
+                }
+                ';' => self.src.advance(),
+                _ => {
+                    print!("expected comment or end of line at ");
+                    self.src.print_location();
+                    println!();
+                    panic!("unimplemented error handling");
+                }
+            },
+        }
+        loop {
+            print!("skip_optional_comment loop, ");
+            self.src.print_current();
+            println!();
+            match self.src.peek() {
+                None => {
+                    print!("unexpected end of file at ");
+                    self.src.print_location();
+                    println!();
+                    panic!("unimplemented error handling");
+                }
+                Some(c) => match c {
+                    '\n' => {
+                        self.src.advance();
+                        return;
+                    }
+                    _ => self.src.advance(),
+                },
+            }
+        }
+    }
 
 }
 
@@ -889,53 +934,6 @@ fn skip_optional_space(src: &mut SourceFile) {
             Some(c) => match c {
                 ' ' | '\t' => src.advance(),
                 _ => return,
-            },
-        }
-    }
-}
-
-fn skip_optional_comment(src: &mut SourceFile) {
-    print!("skip_optional_comment, ");
-    src.print_current();
-    println!();
-    match src.peek() {
-        None => {
-            print!("unexpected end of file at ");
-            src.print_location();
-            println!();
-            panic!("unimplemented error handling");
-        }
-        Some(c) => match c {
-            '\n' => {
-                src.advance();
-                return;
-            }
-            ';' => src.advance(),
-            _ => {
-                print!("expected comment or end of line at ");
-                src.print_location();
-                println!();
-                panic!("unimplemented error handling");
-            }
-        },
-    }
-    loop {
-        print!("skip_optional_comment loop, ");
-        src.print_current();
-        println!();
-        match src.peek() {
-            None => {
-                print!("unexpected end of file at ");
-                src.print_location();
-                println!();
-                panic!("unimplemented error handling");
-            }
-            Some(c) => match c {
-                '\n' => {
-                    src.advance();
-                    return;
-                }
-                _ => src.advance(),
             },
         }
     }
