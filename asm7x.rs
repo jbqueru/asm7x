@@ -41,9 +41,16 @@ fn main() {
     source.push_str("\tBCS\t32773\n");
     source.push_str("\tBIT\t8194\n");
     source.push_str("\tBCS\t32778\n");
-
-    source.push_str("\tJMP\t32783\n");
-    
+    source.push_str("\tLDA\t#0\n");
+    source.push_str("\tSTA\t8192\n");
+    source.push_str("\tSTA\t8193\n");
+    source.push_str("\tLDA\t#63\n");
+    source.push_str("\tSTA\t8198\n");
+    source.push_str("\tLDA\t#0\n");
+    source.push_str("\tSTA\t8198\n");
+    source.push_str("\tLDA\t#26\n");
+    source.push_str("\tSTA\t8199\n");
+    source.push_str("\tJMP\t32806\n");
     source.push_str("\torg 65529\n");
     source.push_str("\tRTI\n");
     source.push_str(" byte 249\n");
@@ -501,6 +508,34 @@ impl Assembler<'_> {
                             panic!("unimplemented error handling")
                         }
                     },
+                    "LDA" => {
+                        if let Some(p) = &i.parameter {
+                            match p {
+                                crate::Number::Immediate(p) => {
+                                    match p {
+                                        0..=255 => {
+                                            println!("# emitting LDA opcode 0x{:02X} at {}", 0xA9, address);
+                                            address += 1;
+                                            println!("# emitting LDA parameter {} at {}", p, address);
+                                            address += 1;
+                                            println!("echo -en '\\x{:02x}\\x{:02x}'", 0xA9, p);
+                                        },
+                                        _ => {
+                                            println!("invalid parameter value for LDA");
+                                            panic!("unimplemented error handling")
+                                        },
+                                    }
+                                },
+                                _ => {
+                                    println!("wrong parameter type for LDA");
+                                    panic!("unimplemented error handling")
+                                },
+                            }
+                        } else {
+                            println!("missing parameter for LDA");
+                            panic!("unimplemented error handling")
+                        }
+                    },
                     "LDX" => {
                         if let Some(p) = &i.parameter {
                             match p {
@@ -546,6 +581,34 @@ impl Assembler<'_> {
                             println!("echo -en '\\x{:02x}'", 0x78);
                         } else {
                             println!("unexpected parameter for SEI");
+                            panic!("unimplemented error handling")
+                        }
+                    },
+                    "STA" => {
+                        if let Some(p) = &i.parameter {
+                            match p {
+                                crate::Number::Address(p) => {
+                                    match p {
+                                        0..=65535 => {
+                                            println!("# emitting STA opcode 0x{:02X} at {}", 0x8D, address);
+                                            address += 1;
+                                            println!("# emitting STA parameter {} at {}", p, address);
+                                            address += 2;
+                                            println!("echo -en '\\x{:02x}\\x{:02x}\\x{:02x}'", 0x8D, p & 255, p >> 8);
+                                        },
+                                        _ => {
+                                            println!("invalid parameter value for STA");
+                                            panic!("unimplemented error handling")
+                                        },
+                                    }
+                                },
+                                _ => {
+                                    println!("wrong parameter type for STA");
+                                    panic!("unimplemented error handling")
+                                },
+                            }
+                        } else {
+                            println!("missing parameter for STA");
                             panic!("unimplemented error handling")
                         }
                     },
