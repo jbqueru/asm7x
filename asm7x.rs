@@ -175,164 +175,179 @@ fn assemble(parsed: &Vec<CodeLine>) {
                 "byte" => {
                     if let Some(p) = &i.parameter {
                         match p {
-                            crate::Number::Address(p) => {
-                                match p {
-                                    0..=255 => {
-                                        println!("# emitting raw byte {} at {}", p, address);
-                                        address += 1;
-                                        println!("echo -en '\\x{:02x}'", p);
-                                    },
-                                    _ => {
-                                        println!("invalid value for byte");
-                                        panic!("unimplemented error handling")
-                                    },
+                            crate::Number::Address(p) => match p {
+                                0..=255 => {
+                                    println!("# emitting raw byte {} at {}", p, address);
+                                    address += 1;
+                                    println!("echo -en '\\x{:02x}'", p);
+                                }
+                                _ => {
+                                    println!("invalid value for byte");
+                                    panic!("unimplemented error handling")
                                 }
                             },
                             _ => {
                                 println!("wrong parameter type for byte");
                                 panic!("unimplemented error handling")
-                            },
+                            }
                         }
                     } else {
                         println!("missing parameter for byte");
                         panic!("unimplemented error handling")
                     }
-                },
+                }
                 "org" => {
                     if let Some(p) = &i.parameter {
                         match p {
-                            crate::Number::Address(p) => {
-                                match p {
-                                    0..=65535 => {
-                                        let newaddress = *p as u32;
-                                        if address == 0 {
-                                            println!("# setting origin to {}", newaddress);
-                                            address = newaddress;
-                                        } else if address < newaddress {
-                                            println!("# advancing to {} ({} bytes)", p, newaddress - address);
-                                            println!("for i in {{{}..{}}}", address, newaddress - 1);
-                                            println!("do");
-                                            println!("  echo -en '\\x{:02x}'", 0xEA);
-                                            println!("done");
-                                            address = newaddress;
-                                        } else {
-                                            println!("attempt to move origin backward");
-                                            panic!("unimplemented error handling")
-                                        }
-                                    },
-                                    _ => {
-                                        println!("invalid address for org");
+                            crate::Number::Address(p) => match p {
+                                0..=65535 => {
+                                    let newaddress = *p as u32;
+                                    if address == 0 {
+                                        println!("# setting origin to {}", newaddress);
+                                        address = newaddress;
+                                    } else if address < newaddress {
+                                        println!(
+                                            "# advancing to {} ({} bytes)",
+                                            p,
+                                            newaddress - address
+                                        );
+                                        println!("for i in {{{}..{}}}", address, newaddress - 1);
+                                        println!("do");
+                                        println!("  echo -en '\\x{:02x}'", 0xEA);
+                                        println!("done");
+                                        address = newaddress;
+                                    } else {
+                                        println!("attempt to move origin backward");
                                         panic!("unimplemented error handling")
-                                    },
+                                    }
+                                }
+                                _ => {
+                                    println!("invalid address for org");
+                                    panic!("unimplemented error handling")
                                 }
                             },
                             _ => {
                                 println!("wrong parameter type for org");
                                 panic!("unimplemented error handling")
-                            },
+                            }
                         }
                     } else {
                         println!("missing parameter for org");
                         panic!("unimplemented error handling")
                     }
-                },
+                }
                 "processor" => {
                     println!("# ignoring directive: {}", i.mnemonic);
-                },
+                }
                 "BCS" => {
                     if let Some(p) = &i.parameter {
                         match p {
-                            crate::Number::Address(p) => {
-                                match p {
-                                    0..=65535 => {
-                                        let destination = *p as u32;
-                                        if destination > address || destination < address - 128 {
-                                            println!("branch out of range for BCS");
-                                            panic!("unimplemented error handling")
-                                        }
-                                        println!("# emitting BCS opcode 0x{:02X} at {}", 0xB0, address);
-                                        address += 1;
-                                        println!("# emitting BCS parameter {} at {}", destination + 256 - address, address);
-                                        address += 1;
-                                        println!("echo -en '\\x{:02x}\\x{:02x}'", 0xB0, destination + 256 - address);
-                                    },
-                                    _ => {
-                                        println!("invalid parameter value for BCS");
+                            crate::Number::Address(p) => match p {
+                                0..=65535 => {
+                                    let destination = *p as u32;
+                                    if destination > address || destination < address - 128 {
+                                        println!("branch out of range for BCS");
                                         panic!("unimplemented error handling")
-                                    },
+                                    }
+                                    println!("# emitting BCS opcode 0x{:02X} at {}", 0xB0, address);
+                                    address += 1;
+                                    println!(
+                                        "# emitting BCS parameter {} at {}",
+                                        destination + 256 - address,
+                                        address
+                                    );
+                                    address += 1;
+                                    println!(
+                                        "echo -en '\\x{:02x}\\x{:02x}'",
+                                        0xB0,
+                                        destination + 256 - address
+                                    );
+                                }
+                                _ => {
+                                    println!("invalid parameter value for BCS");
+                                    panic!("unimplemented error handling")
                                 }
                             },
                             _ => {
                                 println!("wrong parameter type for BCS");
                                 panic!("unimplemented error handling")
-                            },
+                            }
                         }
                     } else {
                         println!("missing parameter for BCS");
                         panic!("unimplemented error handling")
                     }
-                },
+                }
                 "BIT" => {
                     if let Some(p) = &i.parameter {
                         match p {
-                            crate::Number::Address(p) => {
-                                match p {
-                                    0..=65535 => {
-                                        println!("# emitting BIT opcode 0x{:02X} at {}", 0x2C, address);
-                                        address += 1;
-                                        println!("# emitting BIT parameter {} at {}", p, address);
-                                        address += 2;
-                                        println!("echo -en '\\x{:02x}\\x{:02x}\\x{:02x}'", 0x2C, p & 255, p >> 8);
-                                    },
-                                    _ => {
-                                        println!("invalid parameter value for BIT");
-                                        panic!("unimplemented error handling")
-                                    },
+                            crate::Number::Address(p) => match p {
+                                0..=65535 => {
+                                    println!("# emitting BIT opcode 0x{:02X} at {}", 0x2C, address);
+                                    address += 1;
+                                    println!("# emitting BIT parameter {} at {}", p, address);
+                                    address += 2;
+                                    println!(
+                                        "echo -en '\\x{:02x}\\x{:02x}\\x{:02x}'",
+                                        0x2C,
+                                        p & 255,
+                                        p >> 8
+                                    );
+                                }
+                                _ => {
+                                    println!("invalid parameter value for BIT");
+                                    panic!("unimplemented error handling")
                                 }
                             },
                             _ => {
                                 println!("wrong parameter type for BIT");
                                 panic!("unimplemented error handling")
-                            },
+                            }
                         }
                     } else {
                         println!("missing parameter for BIT");
                         panic!("unimplemented error handling")
                     }
-                },
+                }
                 "BPL" => {
                     if let Some(p) = &i.parameter {
                         match p {
-                            crate::Number::Address(p) => {
-                                match p {
-                                    0..=65535 => {
-                                        let destination = *p as u32;
-                                        if destination > address || destination < address - 128 {
-                                            println!("branch out of range for BPL");
-                                            panic!("unimplemented error handling")
-                                        }
-                                        println!("# emitting BPL opcode 0x{:02X} at {}", 0xD0, address);
-                                        address += 1;
-                                        println!("# emitting BPL parameter {} at {}", destination + 256 - address, address);
-                                        address += 1;
-                                        println!("echo -en '\\x{:02x}\\x{:02x}'", 0xD0, destination + 256 - address);
-                                    },
-                                    _ => {
-                                        println!("invalid parameter value for BPL");
+                            crate::Number::Address(p) => match p {
+                                0..=65535 => {
+                                    let destination = *p as u32;
+                                    if destination > address || destination < address - 128 {
+                                        println!("branch out of range for BPL");
                                         panic!("unimplemented error handling")
-                                    },
+                                    }
+                                    println!("# emitting BPL opcode 0x{:02X} at {}", 0xD0, address);
+                                    address += 1;
+                                    println!(
+                                        "# emitting BPL parameter {} at {}",
+                                        destination + 256 - address,
+                                        address
+                                    );
+                                    address += 1;
+                                    println!(
+                                        "echo -en '\\x{:02x}\\x{:02x}'",
+                                        0xD0,
+                                        destination + 256 - address
+                                    );
+                                }
+                                _ => {
+                                    println!("invalid parameter value for BPL");
+                                    panic!("unimplemented error handling")
                                 }
                             },
                             _ => {
                                 println!("wrong parameter type for BPL");
                                 panic!("unimplemented error handling")
-                            },
+                            }
                         }
                     } else {
                         println!("missing parameter for BPL");
                         panic!("unimplemented error handling")
                     }
-                },
+                }
                 "CLC" => {
                     if i.parameter.is_none() {
                         println!("# emitting CLC opcode 0x{:02X} at {}", 0x18, address);
@@ -342,7 +357,7 @@ fn assemble(parsed: &Vec<CodeLine>) {
                         println!("unexpected parameter for CLC");
                         panic!("unimplemented error handling")
                     }
-                },
+                }
                 "CLD" => {
                     if i.parameter.is_none() {
                         println!("# emitting CLD opcode 0x{:02X} at {}", 0xD8, address);
@@ -352,91 +367,90 @@ fn assemble(parsed: &Vec<CodeLine>) {
                         println!("unexpected parameter for CLD");
                         panic!("unimplemented error handling")
                     }
-                },
+                }
                 "JMP" => {
                     if let Some(p) = &i.parameter {
                         match p {
-                            crate::Number::Address(p) => {
-                                match p {
-                                    0..=65535 => {
-                                        println!("# emitting JMP opcode 0x{:02X} at {}", 0x4C, address);
-                                        address += 1;
-                                        println!("# emitting JMP parameter {} at {}", p, address);
-                                        address += 2;
-                                        println!("echo -en '\\x{:02x}\\x{:02x}\\x{:02x}'", 0x4C, p & 255, p >> 8);
-                                    },
-                                    _ => {
-                                        println!("invalid parameter value for JMP");
-                                        panic!("unimplemented error handling")
-                                    },
+                            crate::Number::Address(p) => match p {
+                                0..=65535 => {
+                                    println!("# emitting JMP opcode 0x{:02X} at {}", 0x4C, address);
+                                    address += 1;
+                                    println!("# emitting JMP parameter {} at {}", p, address);
+                                    address += 2;
+                                    println!(
+                                        "echo -en '\\x{:02x}\\x{:02x}\\x{:02x}'",
+                                        0x4C,
+                                        p & 255,
+                                        p >> 8
+                                    );
+                                }
+                                _ => {
+                                    println!("invalid parameter value for JMP");
+                                    panic!("unimplemented error handling")
                                 }
                             },
                             _ => {
                                 println!("wrong parameter type for JMP");
                                 panic!("unimplemented error handling")
-                            },
+                            }
                         }
                     } else {
                         println!("missing parameter for JMP");
                         panic!("unimplemented error handling")
                     }
-                },
+                }
                 "LDA" => {
                     if let Some(p) = &i.parameter {
                         match p {
-                            crate::Number::Immediate(p) => {
-                                match p {
-                                    0..=255 => {
-                                        println!("# emitting LDA opcode 0x{:02X} at {}", 0xA9, address);
-                                        address += 1;
-                                        println!("# emitting LDA parameter {} at {}", p, address);
-                                        address += 1;
-                                        println!("echo -en '\\x{:02x}\\x{:02x}'", 0xA9, p);
-                                    },
-                                    _ => {
-                                        println!("invalid parameter value for LDA");
-                                        panic!("unimplemented error handling")
-                                    },
+                            crate::Number::Immediate(p) => match p {
+                                0..=255 => {
+                                    println!("# emitting LDA opcode 0x{:02X} at {}", 0xA9, address);
+                                    address += 1;
+                                    println!("# emitting LDA parameter {} at {}", p, address);
+                                    address += 1;
+                                    println!("echo -en '\\x{:02x}\\x{:02x}'", 0xA9, p);
+                                }
+                                _ => {
+                                    println!("invalid parameter value for LDA");
+                                    panic!("unimplemented error handling")
                                 }
                             },
                             _ => {
                                 println!("wrong parameter type for LDA");
                                 panic!("unimplemented error handling")
-                            },
+                            }
                         }
                     } else {
                         println!("missing parameter for LDA");
                         panic!("unimplemented error handling")
                     }
-                },
+                }
                 "LDX" => {
                     if let Some(p) = &i.parameter {
                         match p {
-                            crate::Number::Immediate(p) => {
-                                match p {
-                                    0..=255 => {
-                                        println!("# emitting LDX opcode 0x{:02X} at {}", 0xA2, address);
-                                        address += 1;
-                                        println!("# emitting LDX parameter {} at {}", p, address);
-                                        address += 1;
-                                        println!("echo -en '\\x{:02x}\\x{:02x}'", 0xA2, p);
-                                    },
-                                    _ => {
-                                        println!("invalid parameter value for LDX");
-                                        panic!("unimplemented error handling")
-                                    },
+                            crate::Number::Immediate(p) => match p {
+                                0..=255 => {
+                                    println!("# emitting LDX opcode 0x{:02X} at {}", 0xA2, address);
+                                    address += 1;
+                                    println!("# emitting LDX parameter {} at {}", p, address);
+                                    address += 1;
+                                    println!("echo -en '\\x{:02x}\\x{:02x}'", 0xA2, p);
+                                }
+                                _ => {
+                                    println!("invalid parameter value for LDX");
+                                    panic!("unimplemented error handling")
                                 }
                             },
                             _ => {
                                 println!("wrong parameter type for LDX");
                                 panic!("unimplemented error handling")
-                            },
+                            }
                         }
                     } else {
                         println!("missing parameter for LDX");
                         panic!("unimplemented error handling")
                     }
-                },
+                }
                 "RTI" => {
                     if i.parameter.is_none() {
                         println!("# emitting RTI opcode 0x{:02X} at {}", 0x40, address);
@@ -446,7 +460,7 @@ fn assemble(parsed: &Vec<CodeLine>) {
                         println!("unexpected parameter for RTI");
                         panic!("unimplemented error handling")
                     }
-                },
+                }
                 "SEI" => {
                     if i.parameter.is_none() {
                         println!("# emitting SEI opcode 0x{:02X} at {}", 0x78, address);
@@ -456,35 +470,38 @@ fn assemble(parsed: &Vec<CodeLine>) {
                         println!("unexpected parameter for SEI");
                         panic!("unimplemented error handling")
                     }
-                },
+                }
                 "STA" => {
                     if let Some(p) = &i.parameter {
                         match p {
-                            crate::Number::Address(p) => {
-                                match p {
-                                    0..=65535 => {
-                                        println!("# emitting STA opcode 0x{:02X} at {}", 0x8D, address);
-                                        address += 1;
-                                        println!("# emitting STA parameter {} at {}", p, address);
-                                        address += 2;
-                                        println!("echo -en '\\x{:02x}\\x{:02x}\\x{:02x}'", 0x8D, p & 255, p >> 8);
-                                    },
-                                    _ => {
-                                        println!("invalid parameter value for STA");
-                                        panic!("unimplemented error handling")
-                                    },
+                            crate::Number::Address(p) => match p {
+                                0..=65535 => {
+                                    println!("# emitting STA opcode 0x{:02X} at {}", 0x8D, address);
+                                    address += 1;
+                                    println!("# emitting STA parameter {} at {}", p, address);
+                                    address += 2;
+                                    println!(
+                                        "echo -en '\\x{:02x}\\x{:02x}\\x{:02x}'",
+                                        0x8D,
+                                        p & 255,
+                                        p >> 8
+                                    );
+                                }
+                                _ => {
+                                    println!("invalid parameter value for STA");
+                                    panic!("unimplemented error handling")
                                 }
                             },
                             _ => {
                                 println!("wrong parameter type for STA");
                                 panic!("unimplemented error handling")
-                            },
+                            }
                         }
                     } else {
                         println!("missing parameter for STA");
                         panic!("unimplemented error handling")
                     }
-                },
+                }
                 "TXS" => {
                     if i.parameter.is_none() {
                         println!("# emitting TXS opcode 0x{:02X} at {}", 0x9A, address);
@@ -494,15 +511,35 @@ fn assemble(parsed: &Vec<CodeLine>) {
                         println!("unexpected parameter for TXS");
                         panic!("unimplemented error handling")
                     }
-                },
+                }
                 _ => {
                     println!("unknown instruction: {}", i.mnemonic);
                     panic!("unimplemented error handling")
-                },
+                }
             }
         }
     }
     println!();
+}
+
+enum LabelLexerState {
+    BeforeLabel,
+    InLabel,
+}
+
+enum InstructionLexerState {
+    BeforeInstruction,
+    InInstruction,
+}
+/*
+enum ParameterLexerState {
+    BeforeParameter,
+    InParameter,
+}
+*/
+enum NumberLexerState {
+    BeforeNumber,
+    InNumber,
 }
 
 struct Parser<'lt> {
@@ -553,14 +590,14 @@ impl Parser<'_> {
             label: None,
             instruction: None,
         };
-        ret.label = lex_label(&mut self.src);
+        ret.label = self.lex_label();
         if ret.label.is_some() {
             println!("found label: {}", ret.label.as_ref().unwrap());
-            skip_optional_space(&mut self.src);
+            self.skip_optional_space();
             ret.instruction = self.parse_after_label();
             return ret;
         }
-        if skip_space(&mut self.src) {
+        if self.skip_space() {
             ret.instruction = self.parse_after_label();
             return ret;
         }
@@ -574,7 +611,7 @@ impl Parser<'_> {
     fn parse_after_label(&mut self) -> Option<Instruction> {
         println!("parse_after_label");
         let ret = self.parse_instruction();
-        skip_optional_space(&mut self.src);
+        self.skip_optional_space();
         self.skip_optional_comment();
         ret
     }
@@ -584,14 +621,14 @@ impl Parser<'_> {
     // Look for the mnemonic, followed by the parameters
     fn parse_instruction(&mut self) -> Option<Instruction> {
         println!("parse_instruction");
-        let inst = lex_instruction(&mut self.src);
+        let inst = self.lex_instruction();
         if let Some(i) = inst {
             let mut ret = Instruction {
                 mnemonic: i,
                 parameter: None,
             };
             println!("found instruction: {}", ret.mnemonic);
-            if !skip_space(&mut self.src) {
+            if !self.skip_space() {
                 return Some(ret);
             }
             ret.parameter = self.parse_parameters();
@@ -612,8 +649,8 @@ impl Parser<'_> {
             Some(c) => match c {
                 '#' => {
                     self.src.advance();
-                    skip_optional_space(&mut self.src);
-                    match lex_number(&mut self.src) {
+                    self.skip_optional_space();
+                    match self.lex_number() {
                         None => None,
                         Some(n) => {
                             println!("found immediate: {}", n);
@@ -621,7 +658,7 @@ impl Parser<'_> {
                         }
                     }
                 }
-                _ => match lex_number(&mut self.src) {
+                _ => match self.lex_number() {
                     None => None,
                     Some(n) => {
                         println!("found address: {}", n);
@@ -629,6 +666,244 @@ impl Parser<'_> {
                     }
                 },
             },
+        }
+    }
+
+    fn lex_label(&mut self) -> Option<String> {
+        use crate::LabelLexerState::*;
+
+        let mut state = BeforeLabel;
+        let mut ret = String::from("");
+        loop {
+            print!("lex_label loop, state: ");
+            match state {
+                BeforeLabel => print!("before label, "),
+                InLabel => print!("in label, "),
+            }
+            self.src.print_current();
+            println!();
+            match state {
+                BeforeLabel => match self.src.peek() {
+                    None => return None,
+                    Some(c) => match c {
+                        'a'..='z' | 'A'..='Z' => {
+                            ret.push(c);
+                            self.src.advance();
+                            state = InLabel;
+                        }
+                        _ => return None,
+                    },
+                },
+                InLabel => match self.src.peek() {
+                    None => {
+                        print!("unexpected end of file at ");
+                        self.src.print_location();
+                        println!();
+                        panic!("unimplemented error handling");
+                    }
+                    Some(c) => match c {
+                        'a'..='z' | 'A'..='Z' => {
+                            ret.push(c);
+                            self.src.advance();
+                        }
+                        ':' => {
+                            self.src.advance();
+                            return Some(ret);
+                        }
+                        _ => {
+                            print!("invalid label character at ");
+                            self.src.print_location();
+                            println!();
+                            panic!("unimplemented error handling");
+                        }
+                    },
+                },
+            }
+        }
+    }
+
+    fn lex_instruction(&mut self) -> Option<String> {
+        use crate::InstructionLexerState::*;
+
+        let mut state = BeforeInstruction;
+        let mut ret = String::from("");
+        loop {
+            print!("lex_instruction loop, state: ");
+            match state {
+                BeforeInstruction => print!("before instruction, "),
+                InInstruction => print!("in instruction, "),
+            }
+            self.src.print_current();
+            println!();
+            match state {
+                BeforeInstruction => match self.src.peek() {
+                    None => return None,
+                    Some(c) => match c {
+                        'a'..='z' | 'A'..='Z' => {
+                            ret.push(c);
+                            self.src.advance();
+                            state = InInstruction;
+                        }
+                        _ => return None,
+                    },
+                },
+                InInstruction => match self.src.peek() {
+                    None => {
+                        print!("unexpected end of file at ");
+                        self.src.print_location();
+                        println!();
+                        panic!("unimplemented error handling");
+                    }
+                    Some(c) => match c {
+                        'a'..='z' | 'A'..='Z' | '0'..='9' => {
+                            ret.push(c);
+                            self.src.advance();
+                        }
+                        _ => {
+                            return Some(ret);
+                        }
+                    },
+                },
+            }
+        }
+    }
+
+    /*
+        fn lex_parameter(&mut self) -> Option<String> {
+            use crate::ParameterLexerState::*;
+
+            let mut state = BeforeParameter;
+            let mut ret = String::from("");
+            loop {
+                print!("lex_parameter loop, state: ");
+                match state {
+                    BeforeParameter => print!("before parameter, "),
+                    InParameter => print!("in parameter, "),
+                }
+                self.src.print_current();
+                println!();
+                match state {
+                    BeforeParameter => match self.src.peek() {
+                        None => return None,
+                        Some(c) => match c {
+                            'a'..='z' | 'A'..='Z' => {
+                                ret.push(c);
+                                self.src.advance();
+                                state = InParameter;
+                            }
+                            _ => return None,
+                        },
+                    },
+                    InParameter => match self.src.peek() {
+                        None => {
+                            print!("unexpected end of file at ");
+                            self.src.print_location();
+                            println!();
+                            panic!("unimplemented error handling")
+                        }
+                        Some(c) => match c {
+                            'a'..='z' | 'A'..='Z' | '0'..='9' => {
+                                ret.push(c);
+                                self.src.advance();
+                            }
+                            _ => {
+                                return Some(ret);
+                            }
+                        },
+                    },
+                }
+            }
+        }
+    */
+    // Lex a number
+    fn lex_number(&mut self) -> Option<i64> {
+        use crate::NumberLexerState::*;
+
+        let mut state = BeforeNumber;
+        let mut ret = 0_i64;
+        loop {
+            print!("lex_number loop, state: ");
+            match state {
+                BeforeNumber => print!("before number, "),
+                InNumber => print!("in number, "),
+            }
+            self.src.print_current();
+            println!();
+            match state {
+                BeforeNumber => match self.src.peek() {
+                    None => return None,
+                    Some(c) => match c {
+                        '0'..='9' => {
+                            self.src.advance();
+                            ret = ret * 10 + i64::from(c.to_digit(10).unwrap());
+                            state = InNumber;
+                        }
+                        _ => return None,
+                    },
+                },
+                InNumber => match self.src.peek() {
+                    None => {
+                        print!("unexpected end of file at ");
+                        self.src.print_location();
+                        println!();
+                        panic!("unimplemented error handling")
+                    }
+                    Some(c) => match c {
+                        '0'..='9' => {
+                            self.src.advance();
+                            ret = ret * 10 + i64::from(c.to_digit(10).unwrap());
+                        }
+                        _ => {
+                            return Some(ret);
+                        }
+                    },
+                },
+            }
+        }
+    }
+
+    // Lex and skip spaces in a location where spaces are mandatory
+    // return whether spaces were skipped
+    fn skip_space(&mut self) -> bool {
+        print!("skip_space, ");
+        self.src.print_current();
+        println!();
+        match self.src.peek() {
+            None => {
+                print!("unexpected end of file at ");
+                self.src.print_location();
+                println!();
+                panic!("unimplemented error handling");
+            }
+            Some(c) => match c {
+                ' ' | '\t' => {
+                    self.src.advance();
+                    self.skip_optional_space();
+                    true
+                }
+                _ => false,
+            },
+        }
+    }
+
+    // Lex and skip spaces, if any
+    fn skip_optional_space(&mut self) {
+        loop {
+            print!("skip_optional_spaces loop, ");
+            self.src.print_current();
+            println!();
+            match self.src.peek() {
+                None => {
+                    print!("unexpected end of file at ");
+                    self.src.print_location();
+                    println!();
+                    panic!("unimplemented error handling");
+                }
+                Some(c) => match c {
+                    ' ' | '\t' => self.src.advance(),
+                    _ => return,
+                },
+            }
         }
     }
 
@@ -677,264 +952,6 @@ impl Parser<'_> {
                     _ => self.src.advance(),
                 },
             }
-        }
-    }
-
-}
-
-enum LabelLexerState {
-    BeforeLabel,
-    InLabel,
-}
-
-fn lex_label(src: &mut SourceFile) -> Option<String> {
-    use crate::LabelLexerState::*;
-
-    let mut state = BeforeLabel;
-    let mut ret = String::from("");
-    loop {
-        print!("lex_label loop, state: ");
-        match state {
-            BeforeLabel => print!("before label, "),
-            InLabel => print!("in label, "),
-        }
-        src.print_current();
-        println!();
-        match state {
-            BeforeLabel => match src.peek() {
-                None => return None,
-                Some(c) => match c {
-                    'a'..='z' | 'A'..='Z' => {
-                        ret.push(c);
-                        src.advance();
-                        state = InLabel;
-                    }
-                    _ => return None,
-                },
-            },
-            InLabel => match src.peek() {
-                None => {
-                    print!("unexpected end of file at ");
-                    src.print_location();
-                    println!();
-                    panic!("unimplemented error handling");
-                }
-                Some(c) => match c {
-                    'a'..='z' | 'A'..='Z' => {
-                        ret.push(c);
-                        src.advance();
-                    }
-                    ':' => {
-                        src.advance();
-                        return Some(ret);
-                    }
-                    _ => {
-                        print!("invalid label character at ");
-                        src.print_location();
-                        println!();
-                        panic!("unimplemented error handling");
-                    }
-                },
-            },
-        }
-    }
-}
-
-enum InstructionLexerState {
-    BeforeInstruction,
-    InInstruction,
-}
-
-fn lex_instruction(src: &mut SourceFile) -> Option<String> {
-    use crate::InstructionLexerState::*;
-
-    let mut state = BeforeInstruction;
-    let mut ret = String::from("");
-    loop {
-        print!("lex_instruction loop, state: ");
-        match state {
-            BeforeInstruction => print!("before instruction, "),
-            InInstruction => print!("in instruction, "),
-        }
-        src.print_current();
-        println!();
-        match state {
-            BeforeInstruction => match src.peek() {
-                None => return None,
-                Some(c) => match c {
-                    'a'..='z' | 'A'..='Z' => {
-                        ret.push(c);
-                        src.advance();
-                        state = InInstruction;
-                    }
-                    _ => return None,
-                },
-            },
-            InInstruction => match src.peek() {
-                None => {
-                    print!("unexpected end of file at ");
-                    src.print_location();
-                    println!();
-                    panic!("unimplemented error handling");
-                }
-                Some(c) => match c {
-                    'a'..='z' | 'A'..='Z' | '0'..='9' => {
-                        ret.push(c);
-                        src.advance();
-                    }
-                    _ => {
-                        return Some(ret);
-                    }
-                },
-            },
-        }
-    }
-}
-
-/*
-enum ParameterLexerState {
-    BeforeParameter,
-    InParameter,
-}
-
-fn lex_parameter(src: &mut SourceFile) -> Option<String> {
-    use crate::ParameterLexerState::*;
-
-    let mut state = BeforeParameter;
-    let mut ret = String::from("");
-    loop {
-        print!("lex_parameter loop, state: ");
-        match state {
-            BeforeParameter => print!("before parameter, "),
-            InParameter => print!("in parameter, "),
-        }
-        src.print_current();
-        println!();
-        match state {
-            BeforeParameter => match src.peek() {
-                None => return None,
-                Some(c) => match c {
-                    'a'..='z' | 'A'..='Z' => {
-                        ret.push(c);
-                        src.advance();
-                        state = InParameter;
-                    }
-                    _ => return None,
-                },
-            },
-            InParameter => match src.peek() {
-                None => {
-                    print!("unexpected end of file at ");
-                    src.print_location();
-                    println!();
-                    panic!("unimplemented error handling")
-                }
-                Some(c) => match c {
-                    'a'..='z' | 'A'..='Z' | '0'..='9' => {
-                        ret.push(c);
-                        src.advance();
-                    }
-                    _ => {
-                        return Some(ret);
-                    }
-                },
-            },
-        }
-    }
-}
-*/
-
-enum NumberLexerState {
-    BeforeNumber,
-    InNumber,
-}
-
-fn lex_number(src: &mut SourceFile) -> Option<i64> {
-    use crate::NumberLexerState::*;
-
-    let mut state = BeforeNumber;
-    let mut ret = 0_i64;
-    loop {
-        print!("lex_number loop, state: ");
-        match state {
-            BeforeNumber => print!("before number, "),
-            InNumber => print!("in number, "),
-        }
-        src.print_current();
-        println!();
-        match state {
-            BeforeNumber => match src.peek() {
-                None => return None,
-                Some(c) => match c {
-                    '0'..='9' => {
-                        src.advance();
-                        ret = ret * 10 + i64::from(c.to_digit(10).unwrap());
-                        state = InNumber;
-                    }
-                    _ => return None,
-                },
-            },
-            InNumber => match src.peek() {
-                None => {
-                    print!("unexpected end of file at ");
-                    src.print_location();
-                    println!();
-                    panic!("unimplemented error handling")
-                }
-                Some(c) => match c {
-                    '0'..='9' => {
-                        src.advance();
-                        ret = ret * 10 + i64::from(c.to_digit(10).unwrap());
-                    }
-                    _ => {
-                        return Some(ret);
-                    }
-                },
-            },
-        }
-    }
-}
-
-// Skip spaces in a location where spaces are mandatory
-// return whether spaces were skipped
-fn skip_space(src: &mut SourceFile) -> bool {
-    print!("skip_space, ");
-    src.print_current();
-    println!();
-    match src.peek() {
-        None => {
-            print!("unexpected end of file at ");
-            src.print_location();
-            println!();
-            panic!("unimplemented error handling");
-        }
-        Some(c) => match c {
-            ' ' | '\t' => {
-                src.advance();
-                skip_optional_space(src);
-                true
-            }
-            _ => false,
-        },
-    }
-}
-
-fn skip_optional_space(src: &mut SourceFile) {
-    loop {
-        print!("skip_optional_spaces loop, ");
-        src.print_current();
-        println!();
-        match src.peek() {
-            None => {
-                print!("unexpected end of file at ");
-                src.print_location();
-                println!();
-                panic!("unimplemented error handling");
-            }
-            Some(c) => match c {
-                ' ' | '\t' => src.advance(),
-                _ => return,
-            },
         }
     }
 }
