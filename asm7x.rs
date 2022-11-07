@@ -65,73 +65,11 @@ fn main() {
     assemble(&parsed);
 }
 
-// Handling of source files, reading one character at a time
-//
-// knows the current character (if any), the remaining characaters,
-// the source code location.
-//
-// TODO: Handle includes, i.e. nested source files/streams
-//       that'll very probably require to take ownership of the characters
-struct SourceFile<'lt> {
-    current: Option<char>,
-    future: std::str::Chars<'lt>,
-    line: u32,
-    column: u32,
-    file: String,
+struct ParsedSource {
+    lines: Vec<ParsedLine>,
 }
 
-impl SourceFile<'_> {
-    fn new(s: &str) -> SourceFile {
-        let mut iter = s.chars();
-        SourceFile::<'_> {
-            current: iter.next(),
-            future: iter,
-            line: 1,
-            column: 1,
-            file: String::from("<builtin>"),
-        }
-    }
-
-    fn peek(&self) -> Option<char> {
-        self.current
-    }
-
-    fn advance(&mut self) {
-        let previous = self.current.expect("attempting to advance beyond EOF");
-        self.current = self.future.next();
-        if self.current.is_some() {
-            if previous == '\n' {
-                self.line += 1;
-                self.column = 1;
-            } else {
-                self.column += 1;
-            }
-        }
-    }
-
-    fn is_eof(&self) -> bool {
-        self.current.is_none()
-    }
-
-    fn print_current(&self) {
-        match self.current {
-            None => print!("EOF at {}:{}:{}", self.file, self.line, self.column),
-            Some(c) => print!(
-                "character '{}' at {}:{}:{}",
-                c.escape_default(),
-                self.file,
-                self.line,
-                self.column
-            ),
-        }
-    }
-
-    fn print_location(&self) {
-        print!("{}:{}:{}", self.file, self.line, self.column);
-    }
-}
-
-struct CodeLine {
+struct ParsedLine {
     label: Option<String>,
     instruction: Option<Instruction>,
 }
@@ -146,8 +84,8 @@ enum Number {
     Address(i64),
 }
 
-fn list(parsed: &Vec<CodeLine>) {
-    for line in parsed {
+fn list(parsed: &ParsedSource) {
+    for line in &parsed.lines {
         if let Some(l) = &line.label {
             print!("{}:", l);
         }
@@ -166,10 +104,10 @@ fn list(parsed: &Vec<CodeLine>) {
     println!();
 }
 
-fn assemble(parsed: &Vec<CodeLine>) {
+fn assemble(parsed: &ParsedSource) {
     let mut address = 0_u32;
     println!("#!/bin/bash");
-    for line in parsed {
+    for line in &parsed.lines {
         if let Some(i) = &line.instruction {
             match i.mnemonic.as_str() {
                 "byte" => {
@@ -522,6 +460,72 @@ fn assemble(parsed: &Vec<CodeLine>) {
     println!();
 }
 
+// Handling of source files, reading one character at a time
+//
+// knows the current character (if any), the remaining characaters,
+// the source code location.
+//
+// TODO: Handle includes, i.e. nested source files/streams
+//       that'll very probably require to take ownership of the characters
+struct SourceFile<'lt> {
+    current: Option<char>,
+    future: std::str::Chars<'lt>,
+    line: u32,
+    column: u32,
+    file: String,
+}
+
+impl SourceFile<'_> {
+    fn new(s: &str) -> SourceFile {
+        let mut iter = s.chars();
+        SourceFile::<'_> {
+            current: iter.next(),
+            future: iter,
+            line: 1,
+            column: 1,
+            file: String::from("<builtin>"),
+        }
+    }
+
+    fn peek(&self) -> Option<char> {
+        self.current
+    }
+
+    fn advance(&mut self) {
+        let previous = self.current.expect("attempting to advance beyond EOF");
+        self.current = self.future.next();
+        if self.current.is_some() {
+            if previous == '\n' {
+                self.line += 1;
+                self.column = 1;
+            } else {
+                self.column += 1;
+            }
+        }
+    }
+
+    fn is_eof(&self) -> bool {
+        self.current.is_none()
+    }
+
+    fn print_current(&self) {
+        match self.current {
+            None => print!("EOF at {}:{}:{}", self.file, self.line, self.column),
+            Some(c) => print!(
+                "character '{}' at {}:{}:{}",
+                c.escape_default(),
+                self.file,
+                self.line,
+                self.column
+            ),
+        }
+    }
+
+    fn print_location(&self) {
+        print!("{}:{}:{}", self.file, self.line, self.column);
+    }
+}
+
 enum LabelLexerState {
     BeforeLabel,
     InLabel,
@@ -556,8 +560,8 @@ impl Parser<'_> {
     // Parse an entire source file
     //
     // A source file is made of lines, parse lines one at a time
-    fn parse_source(&mut self) -> Vec<CodeLine> {
-        let mut ret = Vec::new();
+    fn parse_source(&mut self) -> ParsedSource {
+        let mut ret = ParsedSource { lines: Vec::new(), };
         while !self.src.is_eof() {
             let l = self.parse_line();
             if l.label.is_some() {
@@ -573,7 +577,7 @@ impl Parser<'_> {
                     }
                 }
             }
-            ret.push(l);
+            ret.lines.push(l);
         }
         println!();
         ret
@@ -584,9 +588,9 @@ impl Parser<'_> {
     // If line starts with a label, handle it and parse rest of line
     // If line starts with a space, skip it and parse rest of line
     // Otherwise, it must either be empty or a comment
-    fn parse_line(&mut self) -> CodeLine {
+    fn parse_line(&mut self) -> ParsedLine {
         println!("parse_line");
-        let mut ret = CodeLine {
+        let mut ret = ParsedLine {
             label: None,
             instruction: None,
         };
@@ -955,7 +959,3 @@ impl Parser<'_> {
         }
     }
 }
-
-/*
-12345678901234567890123456789012345678901234567890123456789012345678901234567890
-*/
