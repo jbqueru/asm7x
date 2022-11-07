@@ -61,7 +61,7 @@ fn main() {
     source.push_str(" byte 255\n");
     let mut assembler = Parser::new(&source);
     let parsed = assembler.parse_source();
-    list(&parsed);
+    parsed.list();
     assemble(&parsed);
 }
 
@@ -84,24 +84,26 @@ enum Number {
     Address(i64),
 }
 
-fn list(parsed: &ParsedSource) {
-    for line in &parsed.lines {
-        if let Some(l) = &line.label {
-            print!("{}:", l);
-        }
-        print!(" ");
-        if let Some(i) = &line.instruction {
-            print!("{}", i.mnemonic);
-            if let Some(p) = &i.parameter {
-                match p {
-                    crate::Number::Immediate(p) => print!(" #{}", p),
-                    crate::Number::Address(p) => print!(" {}", p),
+impl ParsedSource {
+    fn list(&self) {
+        for line in &self.lines {
+            if let Some(l) = &line.label {
+                print!("{}:", l);
+            }
+            print!(" ");
+            if let Some(i) = &line.instruction {
+                print!("{}", i.mnemonic);
+                if let Some(p) = &i.parameter {
+                    match p {
+                        crate::Number::Immediate(p) => print!(" #{}", p),
+                        crate::Number::Address(p) => print!(" {}", p),
+                    }
                 }
             }
+            println!();
         }
         println!();
     }
-    println!();
 }
 
 fn assemble(parsed: &ParsedSource) {
