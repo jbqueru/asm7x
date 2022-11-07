@@ -62,7 +62,7 @@ fn main() {
     let mut assembler = Parser::new(&source);
     let parsed = assembler.parse_source();
     parsed.list();
-    assemble(&parsed);
+    Mos6502Assembler {src: parsed}.assemble();
 }
 
 struct ParsedSource {
@@ -106,360 +106,366 @@ impl ParsedSource {
     }
 }
 
-fn assemble(parsed: &ParsedSource) {
-    let mut address = 0_u32;
-    println!("#!/bin/bash");
-    for line in &parsed.lines {
-        if let Some(i) = &line.instruction {
-            match i.mnemonic.as_str() {
-                "byte" => {
-                    if let Some(p) = &i.parameter {
-                        match p {
-                            crate::Number::Address(p) => match p {
-                                0..=255 => {
-                                    println!("# emitting raw byte {} at {}", p, address);
-                                    address += 1;
-                                    println!("echo -en '\\x{:02x}'", p);
-                                }
+struct Mos6502Assembler {
+    src: ParsedSource,
+}
+
+impl Mos6502Assembler {
+    fn assemble(&self) {
+        let mut address = 0_u32;
+        println!("#!/bin/bash");
+        for line in &self.src.lines {
+            if let Some(i) = &line.instruction {
+                match i.mnemonic.as_str() {
+                    "byte" => {
+                        if let Some(p) = &i.parameter {
+                            match p {
+                                crate::Number::Address(p) => match p {
+                                    0..=255 => {
+                                        println!("# emitting raw byte {} at {}", p, address);
+                                        address += 1;
+                                        println!("echo -en '\\x{:02x}'", p);
+                                    }
+                                    _ => {
+                                        println!("invalid value for byte");
+                                        panic!("unimplemented error handling")
+                                    }
+                                },
                                 _ => {
-                                    println!("invalid value for byte");
+                                    println!("wrong parameter type for byte");
                                     panic!("unimplemented error handling")
                                 }
-                            },
-                            _ => {
-                                println!("wrong parameter type for byte");
-                                panic!("unimplemented error handling")
                             }
+                        } else {
+                            println!("missing parameter for byte");
+                            panic!("unimplemented error handling")
                         }
-                    } else {
-                        println!("missing parameter for byte");
-                        panic!("unimplemented error handling")
                     }
-                }
-                "org" => {
-                    if let Some(p) = &i.parameter {
-                        match p {
-                            crate::Number::Address(p) => match p {
-                                0..=65535 => {
-                                    let newaddress = *p as u32;
-                                    if address == 0 {
-                                        println!("# setting origin to {}", newaddress);
-                                        address = newaddress;
-                                    } else if address < newaddress {
+                    "org" => {
+                        if let Some(p) = &i.parameter {
+                            match p {
+                                crate::Number::Address(p) => match p {
+                                    0..=65535 => {
+                                        let newaddress = *p as u32;
+                                        if address == 0 {
+                                            println!("# setting origin to {}", newaddress);
+                                            address = newaddress;
+                                        } else if address < newaddress {
+                                            println!(
+                                                "# advancing to {} ({} bytes)",
+                                                p,
+                                                newaddress - address
+                                            );
+                                            println!("for i in {{{}..{}}}", address, newaddress - 1);
+                                            println!("do");
+                                            println!("  echo -en '\\x{:02x}'", 0xEA);
+                                            println!("done");
+                                            address = newaddress;
+                                        } else {
+                                            println!("attempt to move origin backward");
+                                            panic!("unimplemented error handling")
+                                        }
+                                    }
+                                    _ => {
+                                        println!("invalid address for org");
+                                        panic!("unimplemented error handling")
+                                    }
+                                },
+                                _ => {
+                                    println!("wrong parameter type for org");
+                                    panic!("unimplemented error handling")
+                                }
+                            }
+                        } else {
+                            println!("missing parameter for org");
+                            panic!("unimplemented error handling")
+                        }
+                    }
+                    "processor" => {
+                        println!("# ignoring directive: {}", i.mnemonic);
+                    }
+                    "BCS" => {
+                        if let Some(p) = &i.parameter {
+                            match p {
+                                crate::Number::Address(p) => match p {
+                                    0..=65535 => {
+                                        let destination = *p as u32;
+                                        if destination > address || destination < address - 128 {
+                                            println!("branch out of range for BCS");
+                                            panic!("unimplemented error handling")
+                                        }
+                                        println!("# emitting BCS opcode 0x{:02X} at {}", 0xB0, address);
+                                        address += 1;
                                         println!(
-                                            "# advancing to {} ({} bytes)",
-                                            p,
-                                            newaddress - address
+                                            "# emitting BCS parameter {} at {}",
+                                            destination + 256 - address,
+                                            address
                                         );
-                                        println!("for i in {{{}..{}}}", address, newaddress - 1);
-                                        println!("do");
-                                        println!("  echo -en '\\x{:02x}'", 0xEA);
-                                        println!("done");
-                                        address = newaddress;
-                                    } else {
-                                        println!("attempt to move origin backward");
+                                        address += 1;
+                                        println!(
+                                            "echo -en '\\x{:02x}\\x{:02x}'",
+                                            0xB0,
+                                            destination + 256 - address
+                                        );
+                                    }
+                                    _ => {
+                                        println!("invalid parameter value for BCS");
                                         panic!("unimplemented error handling")
                                     }
-                                }
+                                },
                                 _ => {
-                                    println!("invalid address for org");
+                                    println!("wrong parameter type for BCS");
                                     panic!("unimplemented error handling")
                                 }
-                            },
-                            _ => {
-                                println!("wrong parameter type for org");
-                                panic!("unimplemented error handling")
                             }
+                        } else {
+                            println!("missing parameter for BCS");
+                            panic!("unimplemented error handling")
                         }
-                    } else {
-                        println!("missing parameter for org");
-                        panic!("unimplemented error handling")
                     }
-                }
-                "processor" => {
-                    println!("# ignoring directive: {}", i.mnemonic);
-                }
-                "BCS" => {
-                    if let Some(p) = &i.parameter {
-                        match p {
-                            crate::Number::Address(p) => match p {
-                                0..=65535 => {
-                                    let destination = *p as u32;
-                                    if destination > address || destination < address - 128 {
-                                        println!("branch out of range for BCS");
+                    "BIT" => {
+                        if let Some(p) = &i.parameter {
+                            match p {
+                                crate::Number::Address(p) => match p {
+                                    0..=65535 => {
+                                        println!("# emitting BIT opcode 0x{:02X} at {}", 0x2C, address);
+                                        address += 1;
+                                        println!("# emitting BIT parameter {} at {}", p, address);
+                                        address += 2;
+                                        println!(
+                                            "echo -en '\\x{:02x}\\x{:02x}\\x{:02x}'",
+                                            0x2C,
+                                            p & 255,
+                                            p >> 8
+                                        );
+                                    }
+                                    _ => {
+                                        println!("invalid parameter value for BIT");
                                         panic!("unimplemented error handling")
                                     }
-                                    println!("# emitting BCS opcode 0x{:02X} at {}", 0xB0, address);
-                                    address += 1;
-                                    println!(
-                                        "# emitting BCS parameter {} at {}",
-                                        destination + 256 - address,
-                                        address
-                                    );
-                                    address += 1;
-                                    println!(
-                                        "echo -en '\\x{:02x}\\x{:02x}'",
-                                        0xB0,
-                                        destination + 256 - address
-                                    );
-                                }
+                                },
                                 _ => {
-                                    println!("invalid parameter value for BCS");
+                                    println!("wrong parameter type for BIT");
                                     panic!("unimplemented error handling")
                                 }
-                            },
-                            _ => {
-                                println!("wrong parameter type for BCS");
-                                panic!("unimplemented error handling")
                             }
+                        } else {
+                            println!("missing parameter for BIT");
+                            panic!("unimplemented error handling")
                         }
-                    } else {
-                        println!("missing parameter for BCS");
-                        panic!("unimplemented error handling")
                     }
-                }
-                "BIT" => {
-                    if let Some(p) = &i.parameter {
-                        match p {
-                            crate::Number::Address(p) => match p {
-                                0..=65535 => {
-                                    println!("# emitting BIT opcode 0x{:02X} at {}", 0x2C, address);
-                                    address += 1;
-                                    println!("# emitting BIT parameter {} at {}", p, address);
-                                    address += 2;
-                                    println!(
-                                        "echo -en '\\x{:02x}\\x{:02x}\\x{:02x}'",
-                                        0x2C,
-                                        p & 255,
-                                        p >> 8
-                                    );
-                                }
-                                _ => {
-                                    println!("invalid parameter value for BIT");
-                                    panic!("unimplemented error handling")
-                                }
-                            },
-                            _ => {
-                                println!("wrong parameter type for BIT");
-                                panic!("unimplemented error handling")
-                            }
-                        }
-                    } else {
-                        println!("missing parameter for BIT");
-                        panic!("unimplemented error handling")
-                    }
-                }
-                "BPL" => {
-                    if let Some(p) = &i.parameter {
-                        match p {
-                            crate::Number::Address(p) => match p {
-                                0..=65535 => {
-                                    let destination = *p as u32;
-                                    if destination > address || destination < address - 128 {
-                                        println!("branch out of range for BPL");
+                    "BPL" => {
+                        if let Some(p) = &i.parameter {
+                            match p {
+                                crate::Number::Address(p) => match p {
+                                    0..=65535 => {
+                                        let destination = *p as u32;
+                                        if destination > address || destination < address - 128 {
+                                            println!("branch out of range for BPL");
+                                            panic!("unimplemented error handling")
+                                        }
+                                        println!("# emitting BPL opcode 0x{:02X} at {}", 0xD0, address);
+                                        address += 1;
+                                        println!(
+                                            "# emitting BPL parameter {} at {}",
+                                            destination + 256 - address,
+                                            address
+                                        );
+                                        address += 1;
+                                        println!(
+                                            "echo -en '\\x{:02x}\\x{:02x}'",
+                                            0xD0,
+                                            destination + 256 - address
+                                        );
+                                    }
+                                    _ => {
+                                        println!("invalid parameter value for BPL");
                                         panic!("unimplemented error handling")
                                     }
-                                    println!("# emitting BPL opcode 0x{:02X} at {}", 0xD0, address);
-                                    address += 1;
-                                    println!(
-                                        "# emitting BPL parameter {} at {}",
-                                        destination + 256 - address,
-                                        address
-                                    );
-                                    address += 1;
-                                    println!(
-                                        "echo -en '\\x{:02x}\\x{:02x}'",
-                                        0xD0,
-                                        destination + 256 - address
-                                    );
-                                }
+                                },
                                 _ => {
-                                    println!("invalid parameter value for BPL");
+                                    println!("wrong parameter type for BPL");
                                     panic!("unimplemented error handling")
                                 }
-                            },
-                            _ => {
-                                println!("wrong parameter type for BPL");
-                                panic!("unimplemented error handling")
                             }
+                        } else {
+                            println!("missing parameter for BPL");
+                            panic!("unimplemented error handling")
                         }
-                    } else {
-                        println!("missing parameter for BPL");
-                        panic!("unimplemented error handling")
                     }
-                }
-                "CLC" => {
-                    if i.parameter.is_none() {
-                        println!("# emitting CLC opcode 0x{:02X} at {}", 0x18, address);
-                        address += 1;
-                        println!("echo -en '\\x{:02x}'", 0x18);
-                    } else {
-                        println!("unexpected parameter for CLC");
-                        panic!("unimplemented error handling")
+                    "CLC" => {
+                        if i.parameter.is_none() {
+                            println!("# emitting CLC opcode 0x{:02X} at {}", 0x18, address);
+                            address += 1;
+                            println!("echo -en '\\x{:02x}'", 0x18);
+                        } else {
+                            println!("unexpected parameter for CLC");
+                            panic!("unimplemented error handling")
+                        }
                     }
-                }
-                "CLD" => {
-                    if i.parameter.is_none() {
-                        println!("# emitting CLD opcode 0x{:02X} at {}", 0xD8, address);
-                        address += 1;
-                        println!("echo -en '\\x{:02x}'", 0xD8);
-                    } else {
-                        println!("unexpected parameter for CLD");
-                        panic!("unimplemented error handling")
+                    "CLD" => {
+                        if i.parameter.is_none() {
+                            println!("# emitting CLD opcode 0x{:02X} at {}", 0xD8, address);
+                            address += 1;
+                            println!("echo -en '\\x{:02x}'", 0xD8);
+                        } else {
+                            println!("unexpected parameter for CLD");
+                            panic!("unimplemented error handling")
+                        }
                     }
-                }
-                "JMP" => {
-                    if let Some(p) = &i.parameter {
-                        match p {
-                            crate::Number::Address(p) => match p {
-                                0..=65535 => {
-                                    println!("# emitting JMP opcode 0x{:02X} at {}", 0x4C, address);
-                                    address += 1;
-                                    println!("# emitting JMP parameter {} at {}", p, address);
-                                    address += 2;
-                                    println!(
-                                        "echo -en '\\x{:02x}\\x{:02x}\\x{:02x}'",
-                                        0x4C,
-                                        p & 255,
-                                        p >> 8
-                                    );
-                                }
+                    "JMP" => {
+                        if let Some(p) = &i.parameter {
+                            match p {
+                                crate::Number::Address(p) => match p {
+                                    0..=65535 => {
+                                        println!("# emitting JMP opcode 0x{:02X} at {}", 0x4C, address);
+                                        address += 1;
+                                        println!("# emitting JMP parameter {} at {}", p, address);
+                                        address += 2;
+                                        println!(
+                                            "echo -en '\\x{:02x}\\x{:02x}\\x{:02x}'",
+                                            0x4C,
+                                            p & 255,
+                                            p >> 8
+                                        );
+                                    }
+                                    _ => {
+                                        println!("invalid parameter value for JMP");
+                                        panic!("unimplemented error handling")
+                                    }
+                                },
                                 _ => {
-                                    println!("invalid parameter value for JMP");
+                                    println!("wrong parameter type for JMP");
                                     panic!("unimplemented error handling")
                                 }
-                            },
-                            _ => {
-                                println!("wrong parameter type for JMP");
-                                panic!("unimplemented error handling")
                             }
+                        } else {
+                            println!("missing parameter for JMP");
+                            panic!("unimplemented error handling")
                         }
-                    } else {
-                        println!("missing parameter for JMP");
-                        panic!("unimplemented error handling")
                     }
-                }
-                "LDA" => {
-                    if let Some(p) = &i.parameter {
-                        match p {
-                            crate::Number::Immediate(p) => match p {
-                                0..=255 => {
-                                    println!("# emitting LDA opcode 0x{:02X} at {}", 0xA9, address);
-                                    address += 1;
-                                    println!("# emitting LDA parameter {} at {}", p, address);
-                                    address += 1;
-                                    println!("echo -en '\\x{:02x}\\x{:02x}'", 0xA9, p);
-                                }
+                    "LDA" => {
+                        if let Some(p) = &i.parameter {
+                            match p {
+                                crate::Number::Immediate(p) => match p {
+                                    0..=255 => {
+                                        println!("# emitting LDA opcode 0x{:02X} at {}", 0xA9, address);
+                                        address += 1;
+                                        println!("# emitting LDA parameter {} at {}", p, address);
+                                        address += 1;
+                                        println!("echo -en '\\x{:02x}\\x{:02x}'", 0xA9, p);
+                                    }
+                                    _ => {
+                                        println!("invalid parameter value for LDA");
+                                        panic!("unimplemented error handling")
+                                    }
+                                },
                                 _ => {
-                                    println!("invalid parameter value for LDA");
+                                    println!("wrong parameter type for LDA");
                                     panic!("unimplemented error handling")
                                 }
-                            },
-                            _ => {
-                                println!("wrong parameter type for LDA");
-                                panic!("unimplemented error handling")
                             }
+                        } else {
+                            println!("missing parameter for LDA");
+                            panic!("unimplemented error handling")
                         }
-                    } else {
-                        println!("missing parameter for LDA");
-                        panic!("unimplemented error handling")
                     }
-                }
-                "LDX" => {
-                    if let Some(p) = &i.parameter {
-                        match p {
-                            crate::Number::Immediate(p) => match p {
-                                0..=255 => {
-                                    println!("# emitting LDX opcode 0x{:02X} at {}", 0xA2, address);
-                                    address += 1;
-                                    println!("# emitting LDX parameter {} at {}", p, address);
-                                    address += 1;
-                                    println!("echo -en '\\x{:02x}\\x{:02x}'", 0xA2, p);
-                                }
+                    "LDX" => {
+                        if let Some(p) = &i.parameter {
+                            match p {
+                                crate::Number::Immediate(p) => match p {
+                                    0..=255 => {
+                                        println!("# emitting LDX opcode 0x{:02X} at {}", 0xA2, address);
+                                        address += 1;
+                                        println!("# emitting LDX parameter {} at {}", p, address);
+                                        address += 1;
+                                        println!("echo -en '\\x{:02x}\\x{:02x}'", 0xA2, p);
+                                    }
+                                    _ => {
+                                        println!("invalid parameter value for LDX");
+                                        panic!("unimplemented error handling")
+                                    }
+                                },
                                 _ => {
-                                    println!("invalid parameter value for LDX");
+                                    println!("wrong parameter type for LDX");
                                     panic!("unimplemented error handling")
                                 }
-                            },
-                            _ => {
-                                println!("wrong parameter type for LDX");
-                                panic!("unimplemented error handling")
                             }
+                        } else {
+                            println!("missing parameter for LDX");
+                            panic!("unimplemented error handling")
                         }
-                    } else {
-                        println!("missing parameter for LDX");
-                        panic!("unimplemented error handling")
                     }
-                }
-                "RTI" => {
-                    if i.parameter.is_none() {
-                        println!("# emitting RTI opcode 0x{:02X} at {}", 0x40, address);
-                        address += 1;
-                        println!("echo -en '\\x{:02x}'", 0x40);
-                    } else {
-                        println!("unexpected parameter for RTI");
-                        panic!("unimplemented error handling")
+                    "RTI" => {
+                        if i.parameter.is_none() {
+                            println!("# emitting RTI opcode 0x{:02X} at {}", 0x40, address);
+                            address += 1;
+                            println!("echo -en '\\x{:02x}'", 0x40);
+                        } else {
+                            println!("unexpected parameter for RTI");
+                            panic!("unimplemented error handling")
+                        }
                     }
-                }
-                "SEI" => {
-                    if i.parameter.is_none() {
-                        println!("# emitting SEI opcode 0x{:02X} at {}", 0x78, address);
-                        address += 1;
-                        println!("echo -en '\\x{:02x}'", 0x78);
-                    } else {
-                        println!("unexpected parameter for SEI");
-                        panic!("unimplemented error handling")
+                    "SEI" => {
+                        if i.parameter.is_none() {
+                            println!("# emitting SEI opcode 0x{:02X} at {}", 0x78, address);
+                            address += 1;
+                            println!("echo -en '\\x{:02x}'", 0x78);
+                        } else {
+                            println!("unexpected parameter for SEI");
+                            panic!("unimplemented error handling")
+                        }
                     }
-                }
-                "STA" => {
-                    if let Some(p) = &i.parameter {
-                        match p {
-                            crate::Number::Address(p) => match p {
-                                0..=65535 => {
-                                    println!("# emitting STA opcode 0x{:02X} at {}", 0x8D, address);
-                                    address += 1;
-                                    println!("# emitting STA parameter {} at {}", p, address);
-                                    address += 2;
-                                    println!(
-                                        "echo -en '\\x{:02x}\\x{:02x}\\x{:02x}'",
-                                        0x8D,
-                                        p & 255,
-                                        p >> 8
-                                    );
-                                }
+                    "STA" => {
+                        if let Some(p) = &i.parameter {
+                            match p {
+                                crate::Number::Address(p) => match p {
+                                    0..=65535 => {
+                                        println!("# emitting STA opcode 0x{:02X} at {}", 0x8D, address);
+                                        address += 1;
+                                        println!("# emitting STA parameter {} at {}", p, address);
+                                        address += 2;
+                                        println!(
+                                            "echo -en '\\x{:02x}\\x{:02x}\\x{:02x}'",
+                                            0x8D,
+                                            p & 255,
+                                            p >> 8
+                                        );
+                                    }
+                                    _ => {
+                                        println!("invalid parameter value for STA");
+                                        panic!("unimplemented error handling")
+                                    }
+                                },
                                 _ => {
-                                    println!("invalid parameter value for STA");
+                                    println!("wrong parameter type for STA");
                                     panic!("unimplemented error handling")
                                 }
-                            },
-                            _ => {
-                                println!("wrong parameter type for STA");
-                                panic!("unimplemented error handling")
                             }
+                        } else {
+                            println!("missing parameter for STA");
+                            panic!("unimplemented error handling")
                         }
-                    } else {
-                        println!("missing parameter for STA");
+                    }
+                    "TXS" => {
+                        if i.parameter.is_none() {
+                            println!("# emitting TXS opcode 0x{:02X} at {}", 0x9A, address);
+                            address += 1;
+                            println!("echo -en '\\x{:02x}'", 0x9A);
+                        } else {
+                            println!("unexpected parameter for TXS");
+                            panic!("unimplemented error handling")
+                        }
+                    }
+                    _ => {
+                        println!("unknown instruction: {}", i.mnemonic);
                         panic!("unimplemented error handling")
                     }
-                }
-                "TXS" => {
-                    if i.parameter.is_none() {
-                        println!("# emitting TXS opcode 0x{:02X} at {}", 0x9A, address);
-                        address += 1;
-                        println!("echo -en '\\x{:02x}'", 0x9A);
-                    } else {
-                        println!("unexpected parameter for TXS");
-                        panic!("unimplemented error handling")
-                    }
-                }
-                _ => {
-                    println!("unknown instruction: {}", i.mnemonic);
-                    panic!("unimplemented error handling")
                 }
             }
         }
+        println!();
     }
-    println!();
 }
 
 // Handling of source files, reading one character at a time
